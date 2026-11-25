@@ -59,7 +59,7 @@ http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('
   assert.deepEqual(rows['u-new'].cyclePeriods.map(x => x.start), ['2026-10-28', '2026-11-20']);
   assert.equal(await ls('dirty'), null);
   // 설정에 계정 표시 → 로그아웃하면 기기 기록 지움
-  await p.click('#openSettings'); assert.equal(await p.textContent('#acctEmail'), 'new@test.dev');
+  await p.evaluate(() => openPrefs()); assert.equal(await p.textContent('#acctEmail'), 'new@test.dev');
   await p.evaluate(() => { window.__askAuto = () => true; }); await p.click('#logout'); await p.waitForTimeout(300);
   assert.equal(await p.isVisible('#login'), true);
   for (const k of ['auth', 'owner', 'cyclePeriods', 'cycleSyms']) assert.equal(await ls(k), null, k + ' cleared on logout');

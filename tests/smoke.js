@@ -19,7 +19,8 @@ http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('
   await p.evaluate(() => setSection('sleep')); assert.equal(await p.textContent('#appTitle'), '오늘'); // 「곧 만들어요」 화면은 없음
   await p.click('#homeCards [data-sec=cycle]'); assert.equal(await p.textContent('#appTitle'), '주기');
   // 설정 → 테마 5종, 바꾸면 기억
-  await p.click('#openSettings'); await p.waitForSelector('#prefs[open]'); assert.equal(await p.locator('#lockOn').count(), 1);
+  assert.equal(await p.locator('header #openSettings, header #reload').count(), 0); // 설정은 메뉴에만
+  await p.click('#menuBtn'); await p.waitForTimeout(450); await p.click('#menuSettings'); await p.waitForSelector('#prefs[open]'); assert.equal(await p.locator('#lockOn').count(), 1);
   await p.click('#prefTheme'); assert.equal(await p.locator('#skinList [data-skin]').count(), 5);
   for (const k of ['clay', 'ios', 'cuberto', 'linear']) { await p.click(`#skinList [data-skin=${k}]`); assert.equal(await p.evaluate(() => document.documentElement.dataset.skin), k); }
   await p.click('#themeClose'); await p.click('#prefsClose');

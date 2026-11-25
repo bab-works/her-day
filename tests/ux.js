@@ -44,7 +44,7 @@ http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('
   await drag('careSheet', 160); assert.equal(asked, 1); assert.equal(await isOpen('careSheet'), true);
   await p.click('#careCancel'); await p.waitForTimeout(350);
   // 그날 기록 창은 바로 저장되니 묻지 않고 닫힘
-  asked = 0; await p.evaluate(() => setSection('cycle')); await p.click('[data-d="2026-11-20"]'); await p.click('#daySym [data-sym="두통"]');
+  asked = 0; await p.evaluate(() => setSection('cycle')); await p.click('#cycCal [data-d="2026-11-20"]'); await p.click('#daySym [data-sym="두통"]');
   await p.mouse.click(180, 20); await p.waitForTimeout(350); assert.equal(asked, 0); assert.equal(await isOpen('daySheet'), false);
 
   // 누르는 곳 44×44 이상 · 가로 넘침 없음: 화면마다, 창마다
@@ -53,7 +53,7 @@ http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('
     return [...top.querySelectorAll('button, a[href], input:not(.sr-only), select, textarea, label.set-row')].filter(e => {
       const r = e.getBoundingClientRect(), cs = getComputedStyle(e);
       if (!r.width || !r.height || cs.visibility === 'hidden' || e.closest('[hidden]') || e.matches('.set-row input, .seg input')) return false;
-      const day = e.closest('#cycCal, #cpGrid'); // 달력 날짜는 7칸이라 높이만
+      const day = e.closest('.mcal, #cpGrid'); // 달력 날짜는 7칸이라 높이만
       return r.height < 43.5 || (!day && r.width < 43.5);
     }).map(e => `${e.id || e.className || e.tagName}:${(e.textContent || e.getAttribute('aria-label') || '').trim().slice(0, 10)} ${Math.round(e.getBoundingClientRect().width)}×${Math.round(e.getBoundingClientRect().height)}`);
   });
@@ -63,13 +63,13 @@ http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('
     if (name !== 'menu') assert.ok(await p.$eval('body', b => b.scrollWidth <= innerWidth), name + ': 가로 넘침'); // 메뉴는 본문을 옆으로 미는 게 정상
   };
   for (const s of ['home', 'cycle', 'nail']) { await p.evaluate(s => setSection(s), s); await check(s); }
-  const sheets = [['cycle', '[data-d="2026-11-20"]', 'daySheet'], ['cycle', '#cycOther', 'calPick'], ['cycle', '#cycList li[data-id]', 'perSheet'],
-    ['nail', '#careAdd', 'careSheet'], ['nail', '#careGap', 'gapSheet'], ['home', '#homeEdit', 'intSheet'], ['home', '#openSettings', 'prefs']];
+  const sheets = [['cycle', '#cycCal [data-d="2026-11-20"]', 'daySheet'], ['cycle', '#cycOther', 'calPick'], ['cycle', '#cycList li[data-id]', 'perSheet'],
+    ['nail', '#careAdd', 'careSheet'], ['nail', '#careGap', 'gapSheet'], ['home', '#homeEdit', 'intSheet'], ['home', '#homeCal [data-d="2026-11-15"]', 'homeDay'], ['cycle', '#cycCal [data-d="2026-11-01"]', 'daySheet']];
   for (const [s, btn, id] of sheets) {
     await p.evaluate(s => setSection(s), s); await p.click(btn); await check(id);
     await p.evaluate(id => document.getElementById(id).close(), id); await p.waitForTimeout(350);
   }
-  await p.click('#openSettings'); await p.click('#prefTheme'); await check('themeSheet'); await p.click('#themeClose'); await p.click('#prefsClose'); await p.waitForTimeout(350);
+  await p.evaluate(() => openPrefs()); await check('prefs'); await p.click('#prefTheme'); await check('themeSheet'); await p.click('#themeClose'); await p.click('#prefsClose'); await p.waitForTimeout(350);
   await p.click('#menuBtn'); await check('menu'); await p.keyboard.press('Escape'); await p.waitForTimeout(500);
   await p.evaluate(() => showLogin()); await check('login');
 

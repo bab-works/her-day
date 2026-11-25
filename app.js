@@ -2,7 +2,7 @@
 // 화면 모양·동작은 하트(bab-works/bab-zip)와 같은 규칙을 따름 (AGENTS.md)
 // 기록은 localStorage에 두고, 로그인하면 본인 계정(Supabase, cloud.js)에도 저장해 다른 기기에서 이어 씀. 남은 볼 수 없음 (supabase.sql의 RLS)
 const $ = s => document.querySelector(s);
-const APP_VERSION = 'herday-v9'; // sw.js의 CACHE와 같아야 함 (tests/version.js가 확인)
+const APP_VERSION = 'herday-v10'; // sw.js의 CACHE와 같아야 함 (tests/version.js가 확인)
 document.addEventListener('pointerdown', () => document.documentElement.classList.add('pointer-focus'), true);
 document.addEventListener('keydown', e => { if (!e.metaKey && !e.ctrlKey && !e.altKey) document.documentElement.classList.remove('pointer-focus'); }, true);
 const store = {
@@ -110,7 +110,50 @@ function shortNow(k) {
   const s = careStats(k);
   return s.left > 0 ? [`관리 ${s.left}일 후`] : s.left === 0 ? ['오늘 관리 예정', 1] : [`예정일 ${-s.left}일 지남`, 1];
 }
+// 오늘 화면 달력: 관심 항목 전부를 한 장에. 생리는 막대, 관리는 섹션 색 점(다음 예상은 빈 점)
+function homeMarks(ym) {
+  const on = shown(), mk = on.includes('cycle') ? monthMarks(ym) : {}, care = on.filter(k => CARE[k]).map(k => [k, careMarks(k)]);
+  return { mk, care };
+}
+function renderHomeCal() {
+  if (!homeYM) homeYM = ymOf(Cycle.today());
+  const { mk, care } = homeMarks(homeYM);
+  $('#homeMonth').textContent = monthCal($('#homeCal'), homeYM, d => {
+    const dots = care.filter(([, c]) => c.v[d] || c.next === d).map(([k, c]) => `<i class="dot s-${k}${c.v[d] ? '' : ' next'}"></i>`).join('');
+    const label = [PER_NAME[mk[d]], ...care.filter(([, c]) => c.v[d]).map(([k]) => SECTIONS[k].title), ...care.filter(([, c]) => !c.v[d] && c.next === d).map(([k]) => SECTIONS[k].title + ' 예상')].filter(Boolean).join(', ');
+    return { k: perFam(mk[d]), cls: mk[d], label, inner: dots ? `<span class="dots">${dots}</span>` : '' };
+  });
+  $('#homeLegend').innerHTML = [shown().includes('cycle') && '<span><i class="per"></i>생리</span><span><i class="pred"></i>예상 생리</span>',
+    ...shown().filter(k => CARE[k]).map(k => `<span><i class="dot s-${k}"></i>${esc(SECTIONS[k].title)}</span>`)].filter(Boolean).join('') + (shown().some(k => CARE[k]) ? '<span><i class="dot next"></i>다음 관리 예상</span>' : '');
+}
+$('#homePrev').addEventListener('click', () => { homeYM = ymMove(homeYM, -1); renderHomeCal(); });
+$('#homeNext').addEventListener('click', () => { homeYM = ymMove(homeYM, 1); renderHomeCal(); });
+// 날짜를 누르면 그날 있었던 일 + 바로 기록하기
+let hdKey = null;
+$('#homeCal').addEventListener('click', e => {
+  const d = e.target.closest('[data-d]')?.dataset.d; if (!d) return;
+  const { mk, care } = homeMarks(ymOf(d)), t = Cycle.today(), dd = days()[d], rows = [];
+  hdKey = d;
+  if (mk[d]) rows.push(['cycle', PER_NAME[mk[d]] + (mk[d] === 'per' ? '' : ' (참고용)'), dd?.sym?.join(' · ') || '']);
+  else if (dd) rows.push(['cycle', '그날 기록', dd.sym?.join(' · ') || dd.note || '']);
+  care.forEach(([k, c]) => { (c.v[d] || []).forEach(x => rows.push([k, `${SECTIONS[k].title} · ${x.what || '다녀옴'}`, [x.place, +x.price ? won(+x.price) : ''].filter(Boolean).join(' · '), x.id])); if (!c.v[d] && c.next === d) rows.push([k, `${SECTIONS[k].title} 다음 관리 예상`, '참고용']); });
+  $('#hdTitle').textContent = mdw(d);
+  $('#hdList').innerHTML = rows.map(([k, a, b, id]) => `<li data-k="${k}" ${id ? `data-id="${esc(id)}"` : ''}><div><span>${esc(a)}</span>${b ? `<small>${esc(b)}</small>` : ''}</div><span class="chev" aria-hidden="true">›</span></li>`).join('') || '<li class="empty">이날은 기록이 없어요</li>';
+  $('#hdAdd').innerHTML = d > t ? '' : shown().map(k => `<button type="button" class="chip-btn" data-k="${k}"><svg class="i" aria-hidden="true"><use href="#i-s-${k}"/></svg>${k === 'cycle' ? '주기 기록' : esc(SECTIONS[k].title) + ' 기록'}</button>`).join('');
+  $('#hdAddLabel').hidden = d > t;
+  $('#homeDay').showModal();
+});
+// 그날 목록·버튼 → 해당 섹션으로 가서 바로 그 기록을 열기
+function hdGo(k, id) {
+  closeNow($('#homeDay')); setSection(k);
+  if (k === 'cycle') { calYM = ymOf(hdKey); renderCycle(); openDay(hdKey); }
+  else { careYM = ymOf(hdKey); renderCareCal(); const x = visits(k).find(q => q.id === id); if (x) openCare(x); else if (hdKey <= Cycle.today()) openCare(null, hdKey); }
+}
+$('#hdList').addEventListener('click', e => { const li = e.target.closest('[data-k]'); if (li) hdGo(li.dataset.k, li.dataset.id); });
+$('#hdAdd').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b) hdGo(b.dataset.k); });
+$('#hdClose').addEventListener('click', () => $('#homeDay').close());
 function renderHome() {
+  renderHomeCal();
   const d = new Date(), u = urgent();
   $('#dashDate').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${'일월화수목금토'[d.getDay()]}요일`;
   $('#homeNow').hidden = !u.length;
@@ -153,7 +196,24 @@ function cycleNow() {
   if (s.daysToNext > 0) return `다음 생리까지 ${s.daysToNext}일`;
   return s.daysToNext === 0 ? '오늘이 생리 예정일이에요' : `생리 예정일이 ${-s.daysToNext}일 지났어요`;
 }
-let calYM = null; // [년, 월]
+let calYM = null, careYM = null, homeYM = null; // 달력마다 보고 있는 [년, 월]
+const ymOf = d => d.split('-').slice(0, 2).map(Number);
+const ymMove = ([y, m], k) => (m + k < 1 ? [y - 1, 12] : m + k > 12 ? [y + 1, 1] : [y, m + k]);
+// 달력 한 장 (주기·관리·오늘 화면이 같이 씀). cell(d) → {k: 이어 그릴 종류, cls, label, inner}
+// 같은 종류(k)가 이어진 날은 막대처럼 붙여 그림(jl·jr). 주가 바뀌는 곳에선 끊음
+function monthCal(el, [y, m], cell) {
+  const t = Cycle.today(), first = `${y}-${String(m).padStart(2, '0')}-01`, n = Cycle.monthDays(y, m), c = {};
+  for (let i = -1; i <= n; i++) { const d = Cycle.add(first, i); c[d] = cell(d) || {}; }
+  el.innerHTML = '<span></span>'.repeat(Cycle.weekday(first)) + Array.from({ length: n }, (_, i) => {
+    const d = Cycle.add(first, i), w = Cycle.weekday(d), { k, cls, label, inner } = c[d];
+    const join = [k && w !== 0 && c[Cycle.add(d, -1)].k === k && 'jl', k && w !== 6 && c[Cycle.add(d, 1)].k === k && 'jr'];
+    const all = [cls, ...join, d === t && 'today', w === 0 && 'sun', w === 6 && 'sat'].filter(Boolean).join(' ');
+    return `<button type="button" data-d="${d}" class="${all}" aria-label="${md(d)}${d === t ? ' 오늘' : ''}${label ? ' ' + label : ''}"><span class="d">${i + 1}</span>${inner || ''}</button>`;
+  }).join('');
+  return `${y}년 ${m}월`;
+}
+const PER_NAME = { per: '생리', pred: '예상 생리', fert: '가임기', ovu: '배란 예상' };
+const perFam = k => (k === 'ovu' ? 'fert' : k); // 배란 예상일도 가임기 막대에 이어서
 function renderCycle() {
   const ps = periods(), dd = days(), t = Cycle.today(), s = Cycle.stats(ps, t);
   $('#cycNow').textContent = cycleNow();
@@ -162,15 +222,9 @@ function renderCycle() {
     .filter(Boolean).map(([k, v]) => `<li><small>${k}</small><b>${v}</b></li>`).join('');
   $('#cycFew').hidden = s.count >= 2 && !s.estimated;
   // 달력
-  if (!calYM) calYM = t.split('-').slice(0, 2).map(Number);
-  const [y, m] = calYM, first = `${y}-${String(m).padStart(2, '0')}-01`, n = Cycle.monthDays(y, m), last = Cycle.add(first, n - 1);
-  const mk = Cycle.marks(ps, first, last, t), name = { per: '생리', pred: '예상 생리', fert: '가임기', ovu: '배란 예상' };
-  $('#cycMonth').textContent = `${y}년 ${m}월`;
-  $('#cycCal').innerHTML = '<span></span>'.repeat(Cycle.weekday(first)) + Array.from({ length: n }, (_, i) => {
-    const d = Cycle.add(first, i), w = Cycle.weekday(d), k = mk[d];
-    const cls = [k, d === t && 'today', w === 0 && 'sun', w === 6 && 'sat'].filter(Boolean).join(' ');
-    return `<button type="button" data-d="${d}" class="${cls}" aria-label="${md(d)}${d === t ? ' 오늘' : ''}${k ? ' ' + name[k] : ''}${dd[d] ? ' 기록 있음' : ''}"><span class="d">${i + 1}</span>${dd[d] ? '<i class="mk"></i>' : ''}</button>`;
-  }).join('');
+  if (!calYM) calYM = ymOf(t);
+  const mk = monthMarks(calYM);
+  $('#cycMonth').textContent = monthCal($('#cycCal'), calYM, d => ({ k: perFam(mk[d]), cls: mk[d], label: [PER_NAME[mk[d]], dd[d] && '기록 있음'].filter(Boolean).join(' '), inner: dd[d] ? '<i class="mk"></i>' : '' }));
   // 지난 기록 (최근 것 위로)
   const asc = [...ps].sort((a, b) => (a.start < b.start ? -1 : 1));
   $('#cycList').innerHTML = asc.map((p, i) => {
@@ -181,17 +235,19 @@ function renderCycle() {
   }).reverse().join('') || '<li class="empty">아직 기록이 없어요. 「생리 시작했어요」를 눌러 보세요</li>';
   renderTodaySym();
 }
-$('#cycPrev').addEventListener('click', () => { calYM = calYM[1] === 1 ? [calYM[0] - 1, 12] : [calYM[0], calYM[1] - 1]; renderCycle(); });
-$('#cycNext').addEventListener('click', () => { calYM = calYM[1] === 12 ? [calYM[0] + 1, 1] : [calYM[0], calYM[1] + 1]; renderCycle(); });
+// 앞뒤 하루씩 넉넉히 (막대 잇기용)
+const monthMarks = ([y, m]) => { const f = `${y}-${String(m).padStart(2, '0')}-01`; return Cycle.marks(periods(), Cycle.add(f, -1), Cycle.add(f, Cycle.monthDays(y, m))); };
+$('#cycPrev').addEventListener('click', () => { calYM = ymMove(calYM, -1); renderCycle(); });
+$('#cycNext').addEventListener('click', () => { calYM = ymMove(calYM, 1); renderCycle(); });
 
 // 새 기록·고친 기록 확인 (틀리면 알림 후 false)
-function periodOk(p) {
+function periodOk(p, all = periods()) {
   const t = Cycle.today(), ok = s => /^\d{4}-\d{2}-\d{2}$/.test(s);
   if (!ok(p.start) || (p.end && !ok(p.end))) return toast('날짜를 골라 주세요'), false;
   if (p.start > t || (p.end && p.end > t)) return toast('앞으로의 날짜는 기록할 수 없어요'), false;
   if (p.end && p.end < p.start) return toast('끝난 날이 시작한 날보다 앞이에요'), false;
   if (p.end && Cycle.diff(p.start, p.end) >= Cycle.OPEN_MAX) return toast(`시작한 날부터 ${Cycle.OPEN_MAX}일 안의 날짜를 골라 주세요`), false;
-  if (Cycle.overlaps(periods(), p, t)) return toast('이미 기록한 생리 기간과 겹쳐요'), false;
+  if (Cycle.overlaps(all, p, t)) return toast('이미 기록한 생리 기간과 겹쳐요'), false;
   return true;
 }
 const savePeriods = ps => store.set('cyclePeriods', ps);
@@ -204,7 +260,7 @@ function markPeriod(kind, d) {
   else p = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), start: d, end: null };
   if (!periodOk(p)) return;
   savePeriods(kind === 'end' ? before.map(q => (q.id === p.id ? p : q)) : [...before, p]);
-  if (kind === 'start') calYM = d.split('-').slice(0, 2).map(Number);
+  if (kind === 'start') calYM = ymOf(d);
   setSection(sec);
   toast(`${md(d)} 생리 ${kind === 'end' ? '끝' : '시작'}을 기록했어요`, 5000, () => { savePeriods(before); setSection(sec); });
 }
@@ -244,14 +300,48 @@ function saveDay() {
   if (flow || daySym.length || note) all[dayKey] = { flow, sym: daySym, note }; else delete all[dayKey];
   store.set('cycleDays', all); renderCycle();
 }
-$('#cycCal').addEventListener('click', e => {
-  const d = e.target.closest('[data-d]')?.dataset.d; if (!d) return;
-  const r = days()[d] || {}, k = Cycle.marks(periods(), d, d)[d];
-  dayKey = d; daySym = [...(r.sym || [])];
-  $('#dayTitle').textContent = mdw(d);
+function dayHead() {
+  const d = dayKey, k = Cycle.marks(periods(), d, d)[d], p = perOf(d);
   $('#dayInfo').textContent = { per: '생리 기간', pred: '생리 예상일 (참고용)', fert: '가임기 예상 (참고용)', ovu: '배란 예상일 (참고용)' }[k] || '';
+  $('#dayPer').checked = !!p; $('#dayPerRow').hidden = d > Cycle.today(); $('#dayPerDel').hidden = !p;
+}
+function openDay(d) {
+  const r = days()[d] || {};
+  dayKey = d; daySym = [...(r.sym || [])];
+  $('#dayTitle').textContent = mdw(d); dayHead();
   $('#dayFlow').querySelectorAll('input').forEach(i => { i.checked = i.value === r.flow; });
   $('#dayNote').value = r.note || ''; renderSyms(); $('#daySheet').showModal();
+}
+$('#cycCal').addEventListener('click', e => { const d = e.target.closest('[data-d]')?.dataset.d; if (d) openDay(d); });
+// 생리 기간: 날짜 하나씩 넣고 빼기. 앞뒤로 이어진 날이면 같은 생리로 늘림(사이 하루를 채우면 두 기록을 합침), 가운데를 빼면 둘로 나눔
+const perOf = d => periods().find(p => p.start <= d && d <= Cycle.endOf(p, Cycle.today()));
+function perToggle(d, on) {
+  const t = Cycle.today(), before = periods(), end = p => Cycle.endOf(p, t), nid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  let ps = before.map(p => ({ ...p }));
+  if (on) {
+    if (perOf(d)) return;
+    const prev = ps.find(p => Cycle.add(end(p), 1) === d), next = ps.find(p => Cycle.add(p.start, -1) === d);
+    if (prev && next) { prev.end = next.end; ps = ps.filter(p => p !== next); }
+    else if (prev) prev.end = d;
+    else if (next) next.start = d;
+    else ps.push({ id: nid(), start: d, end: d === t ? null : d }); // 오늘 시작이면 「생리 중」
+    const changed = prev || next || ps.at(-1);
+    if (!periodOk(changed, ps)) return false;
+  } else {
+    const p = ps.find(q => q.start <= d && d <= end(q)); if (!p) return;
+    const e = end(p);
+    if (p.start === d && e === d) ps = ps.filter(q => q !== p);
+    else if (p.start === d) p.start = Cycle.add(d, 1);
+    else if (e === d) p.end = Cycle.add(d, -1);
+    else { ps.push({ id: nid(), start: Cycle.add(d, 1), end: p.end }); p.end = Cycle.add(d, -1); }
+  }
+  savePeriods(ps); renderCycle(); return true;
+}
+$('#dayPer').addEventListener('change', e => { if (perToggle(dayKey, e.target.checked) === false) e.target.checked = !e.target.checked; dayHead(); });
+$('#dayPerDel').addEventListener('click', () => {
+  const p = perOf(dayKey), before = periods(); if (!p) return;
+  savePeriods(before.filter(q => q.id !== p.id)); closeNow($('#daySheet')); renderCycle();
+  toast(`${md(p.start)}에 시작한 생리 기록을 지웠어요`, 5000, () => { savePeriods(before); renderCycle(); });
 });
 { let was = false; // 고른 양을 다시 누르면 선택 풀기
   $('#dayFlow').addEventListener('pointerdown', e => { was = !!e.target.closest('label')?.querySelector('input')?.checked; });
@@ -307,7 +397,23 @@ function careNow(k) {
   return s.left > 0 ? `다음 관리까지 ${s.left}일` : s.left === 0 ? '오늘이 관리 예정일이에요' : `관리 예정일이 ${-s.left}일 지났어요`;
 }
 const won = n => n.toLocaleString('ko-KR') + '원';
+// 관리 달력: 다녀온 날은 섹션 색으로 채우고, 다음 관리 예상일은 테두리
+const careMarks = k => { const s = careStats(k), v = {}; s.v.forEach(x => { (v[x.date] ||= []).push(x); }); return { v, next: s.next }; };
+function renderCareCal() {
+  const { v, next } = careMarks(sec);
+  if (!careYM) careYM = ymOf(Cycle.today());
+  $('#careMonth').textContent = monthCal($('#careCal'), careYM, d => ({ k: v[d] && 'visit', cls: v[d] ? 'visit' : d === next ? 'nextv' : '', label: v[d] ? '다녀온 날' : d === next ? '다음 관리 예상' : '' }));
+  $('#v-care').dataset.sec = sec;
+}
+$('#carePrev').addEventListener('click', () => { careYM = ymMove(careYM, -1); renderCareCal(); });
+$('#careNext').addEventListener('click', () => { careYM = ymMove(careYM, 1); renderCareCal(); });
+$('#careCal').addEventListener('click', e => {
+  const d = e.target.closest('[data-d]')?.dataset.d; if (!d) return;
+  const x = careMarks(sec).v[d]?.[0];
+  if (x) openCare(x); else if (d > Cycle.today()) toast('앞으로의 날짜는 기록할 수 없어요'); else openCare(null, d);
+});
 function renderCare() {
+  renderCareCal();
   const s = careStats(sec), y = s.t.slice(0, 4), spent = s.v.filter(x => x.date.startsWith(y)).reduce((a, x) => a + (+x.price || 0), 0);
   $('#careNow').textContent = careNow(sec);
   $('#careFacts').innerHTML = [s.last && ['마지막 관리', md(s.last), `${Cycle.diff(s.last, s.t)}일 전`], s.next && ['다음 관리 예상', md(s.next)],
@@ -323,10 +429,10 @@ let careId = null;
 const digits = v => String(v ?? '').replace(/\D/g, '').slice(0, 9);
 const comma = v => (digits(v) ? (+digits(v)).toLocaleString('ko-KR') : '');
 $('#carePrice').addEventListener('input', e => { e.target.value = comma(e.target.value); });
-function openCare(x) {
+function openCare(x, date) {
   careId = x?.id || null; const c = CARE[sec];
   $('#careTitle').textContent = `${SECTIONS[sec].title} ${x ? '기록 고치기' : '기록 추가'}`;
-  $('#careDate').value = x?.date || Cycle.today(); $('#carePrice').value = comma(x?.price || '');
+  $('#careDate').value = x?.date || date || Cycle.today(); $('#carePrice').value = comma(x?.price || '');
   $('#careWhat').value = x?.what || ''; $('#careWhat').placeholder = c.what;
   $('#carePlace').value = x?.place || ''; $('#carePlace').placeholder = c.place;
   $('#careNote').value = x?.note || ''; $('#careDel').hidden = !x; $('#careSheet').showModal();
@@ -399,25 +505,68 @@ $('#cpGrid').addEventListener('click', e => { const d = e.target.closest('[data-
 $('#cpClear').addEventListener('click', () => cpPick(''));
 dateField($('#careDate'), '날짜를 고르세요'); dateField($('#perStart'), '날짜를 고르세요'); dateField($('#perEnd'), '아직 생리 중');
 
-// 사이드 메뉴: --p(열린 정도 0~1)로 하트와 같은 곡선으로 열고 닫음
-const root = document.documentElement, menuP = p => root.style.setProperty('--p', p);
-function openMenu() {
+// 사이드 메뉴: --p(열린 정도 0~1)로 하트와 같은 곡선으로 열고 닫음. 끄는 동안(pushing)엔 transition 없이 손가락을 따라감
+const root = document.documentElement, MENU_MS = 420;
+function menuP(p, dragging) {
+  root.classList.toggle('pushing', !!dragging);
+  root.style.setProperty('--mw', ($('#menu').offsetWidth || 300) + 'px');
+  root.style.setProperty('--p', Math.min(1, Math.max(0, p)).toFixed(3));
+}
+function openMenu(dragging) {
   $('#menuList').innerHTML = ['home', ...shown()].map(k =>
     `<button type="button" data-sec="${k}" ${k === sec ? 'aria-current="page"' : ''}><svg class="i" aria-hidden="true"><use href="#i-s-${k}"/></svg>${esc(SECTIONS[k].title)}</button>`).join('');
   const u = Cloud.on && Cloud.user(); $('#menuSub').textContent = u?.email || ''; $('#menuSub').hidden = !u;
-  menuP(0); root.classList.add('menu-open'); $('#menu').showModal(); $('#menu').offsetWidth;
-  requestAnimationFrame(() => menuP(1));
+  menuP(0, true); root.classList.add('menu-open'); $('#menu').showModal();
+  if (dragging === true) return;
+  $('#menu').offsetWidth; requestAnimationFrame(() => menuP(1));
 }
 function closeMenu(then) {
-  menuP(0); setTimeout(() => { $('#menu').close(); root.classList.remove('menu-open'); then?.(); }, 420);
+  menuP(0); setTimeout(() => { $('#menu').close(); then?.(); }, MENU_MS);
 }
-$('#menuBtn').addEventListener('click', openMenu);
+$('#menu').addEventListener('close', () => root.classList.remove('menu-open', 'pushing'));
+$('#menuBtn').addEventListener('click', () => openMenu());
 $('#menu').addEventListener('click', e => {
   if (e.target === $('#menu')) return closeMenu(); // 바깥(어두운 곳)을 누르면 닫힘
   const k = e.target.closest('[data-sec]')?.dataset.sec; if (k) { setSection(k); closeMenu(); } // 닫히는 동안 화면은 이미 바뀜
 });
 $('#menu').addEventListener('cancel', e => { e.preventDefault(); closeMenu(); });
 $('#menuSettings').addEventListener('click', () => closeMenu(openPrefs));
+// 화면 어디서든 오른쪽으로 밀면 메뉴가 손가락을 따라 나오고, 열린 메뉴는 왼쪽으로 밀면 닫힘 (하트와 같음)
+{
+  const menu = $('#menu');
+  const hScroll = el => { for (; el && el !== document.body; el = el.parentElement) if (el.scrollWidth > el.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return true; return false; };
+  let sw = null;
+  document.addEventListener('touchstart', e => {
+    sw = null;
+    if (e.touches.length !== 1) return;
+    const t = e.target, open = menu.open;
+    if (!open && (document.querySelector('dialog[open]') || t.closest('input, textarea, select') || hScroll(t))) return;
+    sw = { x: e.touches[0].clientX, y: e.touches[0].clientY, open, on: false, p: open ? 1 : 0, v: 0, lx: e.touches[0].clientX, lt: Date.now() };
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (!sw) return;
+    const x = e.touches[0].clientX, dx = x - sw.x, dy = e.touches[0].clientY - sw.y;
+    if (!sw.on) {
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { sw = null; return; } // 세로 스크롤이면 양보
+      if (sw.open ? dx > -10 : dx < 10) return;
+      sw.on = true; sw.x = x;
+      if (!sw.open) { openMenu(true); document.activeElement?.blur(); }
+      sw.w = menu.getBoundingClientRect().width || 300;
+    }
+    e.preventDefault();
+    const now = Date.now();
+    sw.v = (x - sw.lx) / Math.max(1, now - sw.lt); sw.lx = x; sw.lt = now;
+    sw.p = Math.min(1, Math.max(0, (sw.open ? 1 : 0) + (x - sw.x) / sw.w));
+    menuP(sw.p, true);
+  }, { passive: false });
+  const end = () => {
+    if (!sw?.on) { sw = null; return; }
+    const keep = Math.abs(sw.v) > 0.4 ? sw.v > 0 : sw.p > 0.5; // 빠르게 튕기면 방향대로
+    sw = null; menuP(keep ? 1 : 0);
+    if (!keep) setTimeout(() => { if (root.style.getPropertyValue('--p') === '0.000') closeNow(menu); }, MENU_MS);
+  };
+  document.addEventListener('touchend', end); document.addEventListener('touchcancel', end);
+}
 
 // ── 테마 5가지 (하트와 같은 이름·색) ──
 const SKINS = [['main', '메인 테마', '#f2f4f6', '#ffffff', '#3182f6', '10px', '0 1px 2px rgba(0,0,0,.06)'],
@@ -443,7 +592,6 @@ function openPrefs() {
   const u = Cloud.on && Cloud.user(); $('#acctBox').hidden = !u;
   if (u) { $('#acctEmail').textContent = u.email; $('#acctSync').textContent = Cloud.dirty() ? '아직 올리지 못한 기록이 있어요' : '기록은 계정에 저장돼요'; }
   $('#lockOn').checked = !!store.get('lockId'); $('#appVer').textContent = '앱 버전 ' + APP_VERSION.replace('herday-', ''); $('#prefs').showModal(); }
-$('#openSettings').addEventListener('click', openPrefs);
 $('#prefsClose').addEventListener('click', () => $('#prefs').close());
 
 // ── Face ID 잠금 (패스키): 화면을 가리는 잠금. Face ID가 안 되면 아이폰이 기기 암호를 물어봄 ──

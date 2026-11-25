@@ -174,6 +174,7 @@
      - 본문: 메뉴 폭만큼 옆으로 밀리고 왼쪽 모서리가 둥글게 (메뉴의 ::after가 모서리 바깥을 메뉴 색으로 채움)
      - 메뉴: 살짝 뒤(왼쪽)에서 따라오며 투명 → 선명 (패럴랙스)
      - 본문 위: 옅은 흰 막 */
+  html.pushing #menu, html.pushing #menu::after, html.pushing #menu::backdrop, html.pushing body > :not(dialog):not(#toast):not(#syncPop) { transition:none; }
   :root { --p:0; --mw:300px; --menu-ease:cubic-bezier(.32, .72, 0, 1); --menu-t:.42s; }
   #menu { margin:0 auto 0 0; width:min(78vw,300px); height:100%; max-height:100%; border-radius:0; border:0; overflow:visible;
     padding:calc(env(safe-area-inset-top) + 16px) 14px 16px; animation:none;
@@ -471,21 +472,37 @@
   .cyc-btns svg.i { width:18px; height:18px; }
   .cyc-warn { display:flex; gap:8px; align-items:flex-start; margin:12px 0 0; padding:10px 12px; border-radius:12px; background:var(--fill); font-size:max(13px,.765rem); color:var(--fg); word-break:keep-all; }
   .cyc-warn svg.i { flex:none; width:18px; height:18px; color:var(--muted); }
-  #cycCal button { min-height:44px; padding:0; justify-content:center; gap:0; }
-  #cycCal button .d { font-size:1rem; margin:0; }
-  html[data-skin] #cycCal button { box-shadow:none; }
+  .mcal button { min-height:44px; padding:0; justify-content:center; gap:0; }
+  .mcal button .d { font-size:1rem; margin:0; }
+  html[data-skin] .mcal button { box-shadow:none; }
   /* 클레이 테마의 버튼 그림자 막기 */
-  #cycCal .per { background:var(--out); }
-  #cycCal .per .d { color:#fff !important; }
-  #cycCal .pred { background:color-mix(in srgb, var(--out) 16%, transparent); }
-  #cycCal .pred .d { color:var(--out) !important; }
-  #cycCal .fert { background:var(--accent-soft); }
-  #cycCal .ovu { background:var(--accent-soft); }
-  #cycCal .ovu::after { content:""; position:absolute; bottom:4px; left:50%; width:5px; height:5px; margin-left:-2.5px; border-radius:50%; background:var(--accent); }
+  .mcal .per { background:var(--out); }
+  .mcal .per .d { color:#fff !important; }
+  .mcal .pred { background:color-mix(in srgb, var(--out) 16%, transparent); }
+  .mcal .pred .d { color:var(--out) !important; }
+  .mcal .fert { background:var(--accent-soft); }
+  .mcal .ovu { background:var(--accent-soft); }
+  .mcal .ovu::after { content:""; position:absolute; bottom:4px; left:50%; width:5px; height:5px; margin-left:-2.5px; border-radius:50%; background:var(--accent); }
   /* 오늘: 강조색으로 꽉 찬 동그라미 (하트 주간 달력과 같음) */
-  #cycCal .today .d { display:grid; place-items:center; width:30px; height:30px; border-radius:50%; background:var(--accent); color:#fff !important; font-weight:700; }
-  #cycCal .mk { position:absolute; top:4px; right:4px; width:5px; height:5px; border-radius:50%; background:var(--muted); }
-  #cycCal .per .mk { background:#fff; }
+  .mcal { column-gap:0; row-gap:4px; } .mcal + .cyc-legend { margin-top:12px; }
+  .card:has(> .mcal) > .cal-week { gap:0; }
+  /* 이어진 날은 막대처럼: 가운데 칸은 모서리 없이, 양 끝만 둥글게 */
+  .mcal button.jl { border-top-left-radius:0; border-bottom-left-radius:0; } .mcal button.jr { border-top-right-radius:0; border-bottom-right-radius:0; }
+  :root { --c-nail:#e5739f; --c-skin:#8f6bd9; --c-hair:#2fa59b; }
+  #v-care[data-sec="nail"] { --c:var(--c-nail); } #v-care[data-sec="skin"] { --c:var(--c-skin); } #v-care[data-sec="hair"] { --c:var(--c-hair); }
+  .mcal .visit { background:var(--c); } .mcal .visit .d { color:#fff !important; font-weight:700; }
+  .mcal .nextv { box-shadow:inset 0 0 0 2px var(--c) !important; } .mcal .nextv .d { color:var(--c) !important; font-weight:700; }
+  .cyc-legend .visit { background:var(--c); } .cyc-legend .nextv { box-shadow:inset 0 0 0 2px var(--c); }
+  .mcal .dots { position:absolute; bottom:3px; left:0; right:0; display:flex; justify-content:center; gap:2px; }
+  .dot { display:block; width:6px; height:6px; border-radius:50%; background:var(--muted); }
+  .dot.s-nail { background:var(--c-nail); } .dot.s-skin { background:var(--c-skin); } .dot.s-hair { background:var(--c-hair); }
+  .dot.next { background:none !important; box-shadow:inset 0 0 0 1.5px var(--muted); } .dot.s-nail.next { box-shadow:inset 0 0 0 1.5px var(--c-nail); } .dot.s-skin.next { box-shadow:inset 0 0 0 1.5px var(--c-skin); } .dot.s-hair.next { box-shadow:inset 0 0 0 1.5px var(--c-hair); }
+  .cyc-legend i.dot { width:8px; height:8px; margin:0 2px; }
+  .hd-add { display:flex; flex-wrap:wrap; gap:8px; } .hd-add .chip-btn { min-height:44px; } #hdList:empty { display:none; }
+  .dbtn.empty { padding:12px 14px; }
+  .mcal button.today .d { display:grid; place-items:center; width:30px; height:30px; border-radius:50%; background:var(--accent); color:#fff !important; font-weight:700; }
+  .mcal .mk { position:absolute; top:4px; right:4px; width:5px; height:5px; border-radius:50%; background:var(--muted); }
+  .mcal .per .mk { background:#fff; }
   .cyc-legend { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:6px 14px; margin:12px 2px 0; font-size:max(13px,.765rem); color:var(--muted); }
   .cyc-legend span { display:flex; align-items:center; gap:6px; }
   .cyc-legend i { width:12px; height:12px; border-radius:4px; }
@@ -553,13 +570,14 @@
 <header>
   <button id="menuBtn" class="icon-btn" aria-label="메뉴 열기"><svg class="i"><use href="#i-menu"/></svg></button>
   <h1 id="appTitle">오늘</h1>
-  <button id="openSettings" class="icon-btn" aria-label="설정"><svg class="i"><use href="#i-gear"/></svg></button>
+  
 </header>
 
 <main>
   <!-- 섹션마다 하나. 지금은 뼈대: 내용은 다음 단계에서 기능별로 채움 -->
   <section id="v-home">
     <div class="dash-hi"><small id="dashDate"></small><h2 id="dashHi">오늘도 나를 챙겨요</h2></div>
+    <div class="card"><div class="cal-head"><b id="homeMonth"></b><span class="month-pill"><button type="button" id="homePrev" aria-label="지난달"><svg class="i" aria-hidden="true"><use href="#i-left"/></svg></button><button type="button" id="homeNext" aria-label="다음 달"><svg class="i" aria-hidden="true"><use href="#i-right"/></svg></button></span></div><div class="cal-week" aria-hidden="true"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div class="cal pick mcal" id="homeCal"></div><div class="cyc-legend" id="homeLegend" aria-hidden="true"></div></div>
     <div class="card home-now" id="homeNow" hidden><h2>지금 챙길 것</h2><ul id="homeNowList"></ul></div>
     <div id="homeCards" class="home-grid"></div>
     <button type="button" class="home-edit" id="homeEdit">항목 편집</button>
@@ -576,7 +594,7 @@
     <div class="card">
       <div class="cal-head"><b id="cycMonth"></b><span class="month-pill"><button type="button" id="cycPrev" aria-label="지난달"><svg class="i" aria-hidden="true"><use href="#i-left"/></svg></button><button type="button" id="cycNext" aria-label="다음 달"><svg class="i" aria-hidden="true"><use href="#i-right"/></svg></button></span></div>
       <div class="cal-week" aria-hidden="true"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
-      <div class="cal pick" id="cycCal"></div>
+      <div class="cal pick mcal" id="cycCal"></div>
       <div class="cyc-legend" aria-hidden="true"><span><i class="per"></i>생리</span><span><i class="pred"></i>예상 생리</span><span><i class="fert"></i>가임기</span><span><i class="ovu"></i>배란 예상</span><span><i class="mk"></i>기록 있음</span></div>
       <p class="hint">날짜를 누르면 그날의 생리 양 · 증상 · 메모를 남길 수 있어요</p>
     </div>
@@ -590,6 +608,8 @@
       <ul class="cyc-facts" id="careFacts"></ul>
       <div class="row cyc-btns"><button type="button" class="primary" id="careAdd"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>기록 추가</button><button type="button" id="careGap"><svg class="i" aria-hidden="true"><use href="#i-cal"/></svg>관리 주기</button></div>
     </div>
+    <div class="card"><div class="cal-head"><b id="careMonth"></b><span class="month-pill"><button type="button" id="carePrev" aria-label="지난달"><svg class="i" aria-hidden="true"><use href="#i-left"/></svg></button><button type="button" id="careNext" aria-label="다음 달"><svg class="i" aria-hidden="true"><use href="#i-right"/></svg></button></span></div><div class="cal-week" aria-hidden="true"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div class="cal pick mcal" id="careCal"></div>
+      <div class="cyc-legend" aria-hidden="true"><span><i class="visit"></i>다녀온 날</span><span><i class="nextv"></i>다음 관리 예상</span></div><p class="hint">날짜를 누르면 그날 기록을 더하거나 고칠 수 있어요</p></div>
     <div class="card"><h2>지난 기록</h2><ul class="tx" id="careList"></ul></div>
   </section>
 </main>
@@ -631,13 +651,14 @@
   <div class="sheet-grab" aria-hidden="true"><span></span></div>
   <h2 id="dayTitle" class="prefs-title"></h2>
   <p class="hint" id="dayInfo" style="text-align:center"></p>
+  <div class="set-group" id="dayPerRow"><label class="set-row switch"><span class="set-grow">이 날 생리했어요<small>이어진 날은 한 번의 생리로 묶여요</small></span><input type="checkbox" id="dayPer"><i aria-hidden="true"></i></label></div>
   <p class="set-label">생리 양</p>
   <div class="seg" id="dayFlow"><label><input type="radio" name="flow" value="적음"><span>적음</span></label><label><input type="radio" name="flow" value="보통"><span>보통</span></label><label><input type="radio" name="flow" value="많음"><span>많음</span></label></div>
   <p class="set-label">PMS 증상 · 여러 개 고를 수 있어요</p>
   <div class="chips cyc-chips" id="daySym"></div>
   <p class="set-label">메모</p>
   <textarea id="dayNote" rows="3" aria-label="메모" placeholder="그날 몸 상태를 적어 두세요"></textarea>
-  <div class="row sheet-foot" style="justify-content:flex-end"><button type="button" class="primary" id="dayDone">완료</button></div>
+  <div class="row sheet-foot"><button type="button" class="danger" id="dayPerDel" hidden>이 생리 기록 지우기</button><button type="button" class="primary" id="dayDone" style="margin-left:auto">완료</button></div>
 </dialog>
 
 <dialog id="perSheet" class="sheet prefs" data-confirm aria-labelledby="perTitle">
@@ -664,6 +685,15 @@
   <p class="hint" style="text-align:center">고른 항목만 보여요. 나중에 오늘 화면 아래 「항목 편집」에서 바꿀 수 있어요</p>
   <div class="set-group" id="intList"></div>
   <div class="row sheet-foot" style="justify-content:flex-end"><button type="button" class="primary" id="intSave">완료</button></div>
+</dialog>
+
+<dialog id="homeDay" class="sheet prefs" aria-labelledby="hdTitle">
+<div class="sheet-grab" aria-hidden="true"><span></span></div>
+<h2 id="hdTitle" class="prefs-title"></h2>
+<ul class="tx" id="hdList"></ul>
+<p class="set-label" id="hdAddLabel">이날 기록하기</p>
+<div class="hd-add" id="hdAdd"></div>
+<div class="row sheet-foot" style="justify-content:flex-end"><button type="button" id="hdClose">닫기</button></div>
 </dialog>
 
 <dialog id="gapSheet" class="sheet prefs" data-confirm aria-labelledby="gapTitle">

@@ -66,21 +66,21 @@ http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('
   const facts = await text('#cycFacts');
   assert.ok(facts.includes('26일') && facts.includes('12월 19일') && facts.includes('12월 5일'), facts);
   // 달력 색: 생리(끝 안 눌러도 오늘까지), 다음 달 예상, 오늘 표시
-  for (const d of ['2026-11-23', '2026-11-25']) assert.ok((await p.getAttribute(`[data-d="${d}"]`, 'class')).includes('per'), d);
-  assert.ok(!(await p.getAttribute('[data-d="2026-11-26"]', 'class')).includes('per'));
-  assert.ok((await p.getAttribute('[data-d="2026-11-25"]', 'class')).includes('today'));
-  assert.ok((await p.getAttribute('[data-d="2026-11-25"]', 'aria-label')).includes('오늘'));
+  for (const d of ['2026-11-23', '2026-11-25']) assert.ok((await p.getAttribute(`#cycCal [data-d="${d}"]`, 'class')).includes('per'), d);
+  assert.ok(!(await p.getAttribute('#cycCal [data-d="2026-11-26"]', 'class')).includes('per'));
+  assert.ok((await p.getAttribute('#cycCal [data-d="2026-11-25"]', 'class')).includes('today'));
+  assert.ok((await p.getAttribute('#cycCal [data-d="2026-11-25"]', 'aria-label')).includes('오늘'));
   await p.click('#cycNext'); assert.equal(await text('#cycMonth'), '2026년 12월');
-  assert.ok((await p.getAttribute('[data-d="2026-12-05"]', 'class')).includes('ovu'));
-  assert.ok((await p.getAttribute('[data-d="2026-12-01"]', 'class')).includes('fert'));
-  assert.ok((await p.getAttribute('[data-d="2026-12-19"]', 'class')).includes('pred'));
+  assert.ok((await p.getAttribute('#cycCal [data-d="2026-12-05"]', 'class')).includes('ovu'));
+  assert.ok((await p.getAttribute('#cycCal [data-d="2026-12-01"]', 'class')).includes('fert'));
+  assert.ok((await p.getAttribute('#cycCal [data-d="2026-12-19"]', 'class')).includes('pred'));
   await p.click('#cycNext'); await p.click('#cycPrev'); await p.click('#cycPrev'); assert.equal(await text('#cycMonth'), '2026년 11월');
   for (let i = 0; i < 2; i++) await p.click('#cycNext'); assert.equal(await text('#cycMonth'), '2027년 1월');
   assert.equal(await p.locator('#cycCal [data-d]').count(), 31);
   for (let i = 0; i < 2; i++) await p.click('#cycPrev');
 
   // 그날 기록: 누르는 즉시 저장 (양 · 증상 여러 개 · 직접 입력 · 메모)
-  await p.click('[data-d="2026-11-24"]'); await p.waitForSelector('#daySheet[open]');
+  await p.click('#cycCal [data-d="2026-11-24"]'); await p.waitForSelector('#daySheet[open]');
   assert.equal(await text('#dayTitle'), '11월 24일 화요일'); assert.equal(await text('#dayInfo'), '생리 기간');
   assert.equal(await p.locator('#daySym [data-sym]').count(), 10);
   await p.click('#dayFlow label:nth-child(2)');
@@ -89,19 +89,19 @@ http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('
   await answer('어지러움'); await p.click('#daySym [data-add]');
   assert.equal(await p.getAttribute('#daySym [data-sym="어지러움"]', 'aria-pressed'), 'true');
   assert.deepEqual((await days())['2026-11-24'].sym, ['복통', '어지러움']);
-  assert.equal(await p.locator('[data-d="2026-11-24"] .mk').count(), 1); // 달력 점도 바로
+  assert.equal(await p.locator('#cycCal [data-d="2026-11-24"] .mk').count(), 1); // 달력 점도 바로
   await p.fill('#dayNote', '가짜 메모'); await p.waitForTimeout(650);
   assert.deepEqual((await days())['2026-11-24'], { flow: '보통', sym: ['복통', '어지러움'], note: '가짜 메모' });
   await p.screenshot({ path: os.tmpdir() + '/herday-cycle-day.png' });
   await p.click('#dayDone'); await p.waitForTimeout(300);
   // 다시 열면 그대로, 양을 다시 누르면 선택 풀림(바로 저장), 메모는 닫을 때도 저장
-  await p.click('[data-d="2026-11-24"]');
+  await p.click('#cycCal [data-d="2026-11-24"]');
   assert.equal(await p.isChecked('#dayFlow input[value="보통"]'), true); assert.equal(await p.inputValue('#dayNote'), '가짜 메모');
   await p.click('#dayFlow label:nth-child(2)'); assert.equal(await p.isChecked('#dayFlow input[value="보통"]'), false);
   assert.equal((await days())['2026-11-24'].flow, '');
   await p.fill('#dayNote', '가짜 메모 2'); await p.keyboard.press('Escape'); await p.waitForTimeout(300);
   assert.equal((await days())['2026-11-24'].note, '가짜 메모 2');
-  await p.click('[data-d="2026-11-10"]'); assert.equal(await p.locator('#daySym [data-sym="어지러움"]').count(), 1);
+  await p.click('#cycCal [data-d="2026-11-10"]'); assert.equal(await p.locator('#daySym [data-sym="어지러움"]').count(), 1);
   assert.equal(await p.getAttribute('#daySym [data-sym="어지러움"]', 'aria-pressed'), 'false');
   await p.click('#dayDone'); await p.waitForTimeout(300); // 빈 기록은 남기지 않음
   assert.equal('2026-11-10' in (await days()), false);
@@ -134,13 +134,13 @@ http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('
   assert.equal(await text('#cycSym [data-sym="복통"] small'), '최근 7일 중 2일'); // 어제 + 오늘
   await p.click('#cycSym [data-sym="복통"]'); await p.click('#cycSym [data-sym="두통"]'); await p.click('#cycSym [data-sym="피로"]');
   assert.deepEqual((await days())['2026-11-25'].sym, ['두통', '피로']);
-  assert.equal(await p.locator('[data-d="2026-11-25"] .mk').count(), 1);
+  assert.equal(await p.locator('#cycCal [data-d="2026-11-25"] .mk').count(), 1);
   await p.click('#cycSym [data-sym="피로"]');
   await answer('손발 저림'); await p.click('#cycSym [data-add]');
   assert.equal(await p.getAttribute('#cycSym [data-sym="손발 저림"]', 'aria-pressed'), 'true');
   assert.deepEqual((await days())['2026-11-25'].sym, ['두통', '손발 저림']);
   // 그날 기록 창에도 같은 내용
-  await p.click('[data-d="2026-11-25"]'); assert.equal(await p.getAttribute('#daySym [data-sym="두통"]', 'aria-pressed'), 'true'); await p.click('#dayDone'); await p.waitForTimeout(300);
+  await p.click('#cycCal [data-d="2026-11-25"]'); assert.equal(await p.getAttribute('#daySym [data-sym="두통"]', 'aria-pressed'), 'true'); await p.click('#dayDone'); await p.waitForTimeout(300);
   // 다 풀면 오늘 기록이 사라짐
   await p.click('#cycSym [data-sym="두통"]'); await p.click('#cycSym [data-sym="손발 저림"]');
   assert.equal('2026-11-25' in (await days()), false);
@@ -163,7 +163,7 @@ http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('
     if (k === 'main' || k === 'linear') await p.screenshot({ path: `${os.tmpdir()}/herday-cycle-${k}.png`, fullPage: true });
     if (k === 'clay') await p.screenshot({ path: `${os.tmpdir()}/herday-cycle-clay.png`, fullPage: true });
   }
-  await p.click('[data-d="2026-11-24"]'); await p.waitForTimeout(500); await p.screenshot({ path: os.tmpdir() + '/herday-cycle-day-linear.png' });
+  await p.click('#cycCal [data-d="2026-11-24"]'); await p.waitForTimeout(500); await p.screenshot({ path: os.tmpdir() + '/herday-cycle-day-linear.png' });
   await p.click('#dayDone'); await p.evaluate(() => { setSkin('main'); setSection('home'); }); await p.waitForTimeout(600);
   await p.screenshot({ path: os.tmpdir() + '/herday-cycle-home.png' });
 
