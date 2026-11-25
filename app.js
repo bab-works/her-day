@@ -2,7 +2,7 @@
 // 화면 모양·동작은 하트(bab-works/bab-zip)와 같은 규칙을 따름 (AGENTS.md)
 // 기록은 localStorage에 두고, 로그인하면 본인 계정(Supabase, cloud.js)에도 저장해 다른 기기에서 이어 씀. 남은 볼 수 없음 (supabase.sql의 RLS)
 const $ = s => document.querySelector(s);
-const APP_VERSION = 'herday-v4'; // sw.js의 CACHE와 같아야 함 (tests/version.js가 확인)
+const APP_VERSION = 'herday-v5'; // sw.js의 CACHE와 같아야 함 (tests/version.js가 확인)
 document.addEventListener('pointerdown', () => document.documentElement.classList.add('pointer-focus'), true);
 document.addEventListener('keydown', e => { if (!e.metaKey && !e.ctrlKey && !e.altKey) document.documentElement.classList.remove('pointer-focus'); }, true);
 const store = {

@@ -1,8 +1,8 @@
 // 로그인 · 클라우드 저장 (Supabase, 라이브러리 없이 fetch로)
 // 주소·공개 키(anon/publishable)는 비밀이 아님. 「각자 자기 기록만」 규칙(RLS)은 서버 쪽 supabase.sql에 있음
 // 기록은 사람마다 한 줄(herday 표의 data)에 통째로 저장. 마지막에 올린 쪽이 이김
-const SUPA_URL = ''; // 예: https://abcd1234.supabase.co
-const SUPA_KEY = ''; // Project Settings → API의 anon(publishable) 키
+const SUPA_URL = 'https://utkbghjzddwkvgnacwyn.supabase.co';
+const SUPA_KEY = 'sb_publishable_4MHAZLRgpoPgL-EepOSAgw__MxXQUfn'; // 공개 키(publishable). secret 키는 절대 넣지 않음
 const Cloud = (() => {
   const C = window.__cloud || { url: SUPA_URL, key: SUPA_KEY }; // 테스트는 window.__cloud로 바꿔 씀
   const SYNC = ['cyclePeriods', 'cycleDays', 'cycleSyms']; // 건강 기록만 올림. 테마·잠금·보던 화면은 기기마다
