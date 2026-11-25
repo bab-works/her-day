@@ -2,7 +2,7 @@
 // 화면 모양·동작은 하트(bab-works/bab-zip)와 같은 규칙을 따름 (AGENTS.md)
 // 기록은 localStorage에 두고, 로그인하면 본인 계정(Supabase, cloud.js)에도 저장해 다른 기기에서 이어 씀. 남은 볼 수 없음 (supabase.sql의 RLS)
 const $ = s => document.querySelector(s);
-const APP_VERSION = 'herday-v5'; // sw.js의 CACHE와 같아야 함 (tests/version.js가 확인)
+const APP_VERSION = 'herday-v6'; // sw.js의 CACHE와 같아야 함 (tests/version.js가 확인)
 document.addEventListener('pointerdown', () => document.documentElement.classList.add('pointer-focus'), true);
 document.addEventListener('keydown', e => { if (!e.metaKey && !e.ctrlKey && !e.altKey) document.documentElement.classList.remove('pointer-focus'); }, true);
 const store = {
@@ -100,6 +100,7 @@ function renderCycle() {
     const sub = [p.end ? `${len}일` : Cycle.endOf(p, t) >= t ? '생리 중' : '끝난 날 기록 없음', nx && `주기 ${Cycle.diff(p.start, nx.start)}일`, p.start.slice(0, 4) !== t.slice(0, 4) && p.start.slice(0, 4) + '년'].filter(Boolean).join(' · ');
     return `<li data-id="${esc(p.id)}"><div><span>${range}</span><small>${sub}</small></div><span class="chev" aria-hidden="true">›</span></li>`;
   }).reverse().join('') || '<li class="empty">아직 기록이 없어요. 「생리 시작」을 눌러 보세요</li>';
+  renderTodaySym();
 }
 $('#cycPrev').addEventListener('click', () => { calYM = calYM[1] === 1 ? [calYM[0] - 1, 12] : [calYM[0], calYM[1] - 1]; renderCycle(); });
 $('#cycNext').addEventListener('click', () => { calYM = calYM[1] === 12 ? [calYM[0] + 1, 1] : [calYM[0], calYM[1] + 1]; renderCycle(); });
@@ -168,13 +169,33 @@ $('#cycCal').addEventListener('click', e => {
   $('#dayFlow').addEventListener('click', e => { if (e.target.matches('input') && was) { e.target.checked = false; was = false; } }); }
 $('#daySym').addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return;
-  if (b.dataset.add) {
-    const v = (await ask('증상을 적어 주세요', { ok: '추가', input: '' }))?.trim().slice(0, 20); if (!v) return;
-    const mine = store.get('cycleSyms', []); if (!SYMS.includes(v) && !mine.includes(v)) store.set('cycleSyms', [...mine, v]);
-    if (!daySym.includes(v)) daySym.push(v);
-  } else { const x = b.dataset.sym; daySym = daySym.includes(x) ? daySym.filter(y => y !== x) : [...daySym, x]; }
+  if (b.dataset.add) { const v = await addSym(); if (!v) return; if (!daySym.includes(v)) daySym.push(v); } else { const x = b.dataset.sym; daySym = daySym.includes(x) ? daySym.filter(y => y !== x) : [...daySym, x]; }
   renderSyms();
 });
+// 직접 입력한 증상은 목록에 남겨서 다른 날에도 고를 수 있게
+async function addSym() {
+  const v = (await ask('증상을 적어 주세요', { ok: '추가', input: '' }))?.trim().slice(0, 20); if (!v) return '';
+  const mine = store.get('cycleSyms', []); if (!SYMS.includes(v) && !mine.includes(v)) store.set('cycleSyms', [...mine, v]);
+  return v;
+}
+// 화면 아래 「오늘 증상」: 하트 습관처럼 한 줄씩 동그라미를 눌러 오늘 기록, 최근 7일 점
+function renderTodaySym() {
+  const dd = days(), t = Cycle.today(), on = dd[t]?.sym || [], week = Array.from({ length: 7 }, (_, i) => Cycle.add(t, i - 6));
+  $('#cycSym').innerHTML = [...new Set([...SYMS, ...store.get('cycleSyms', []), ...on])].map(x => {
+    const n = week.filter(d => dd[d]?.sym?.includes(x)).length, done = on.includes(x);
+    return `<li class="card${done ? ' done' : ''}" data-sym="${esc(x)}" style="--c:var(--accent)"><span class="hic" aria-hidden="true"><svg class="i"><use href="#i-pulse"/></svg></span>
+      <div><span>${esc(x)}</span><small>${n ? `최근 7일 중 ${n}일` : '최근 7일 없음'}</small><small class="hdots" aria-hidden="true">${week.map(d => `<i class="${dd[d]?.sym?.includes(x) ? 'on' : ''}"></i>`).join('')}</small></div>
+      <button type="button" class="hcheck" data-sym="${esc(x)}" aria-pressed="${done}" aria-label="오늘 ${esc(x)}"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg></button></li>`;
+  }).join('');
+}
+function toggleTodaySym(x) {
+  const all = days(), t = Cycle.today(), r = all[t] || { flow: '', sym: [], note: '' };
+  r.sym = r.sym.includes(x) ? r.sym.filter(y => y !== x) : [...r.sym, x];
+  if (r.flow || r.sym.length || r.note) all[t] = r; else delete all[t];
+  store.set('cycleDays', all); renderCycle();
+}
+$('#cycSym').addEventListener('click', e => { const x = e.target.closest('[data-sym]')?.dataset.sym; if (x != null) toggleTodaySym(x); });
+$('#cycSymAdd').addEventListener('click', async () => { const v = await addSym(); if (v && !days()[Cycle.today()]?.sym?.includes(v)) toggleTodaySym(v); });
 $('#dayClose').addEventListener('click', () => $('#daySheet').close());
 $('#daySave').addEventListener('click', () => {
   const all = days(), flow = $('#dayFlow input:checked')?.value || '', note = $('#dayNote').value.trim();

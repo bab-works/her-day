@@ -64,9 +64,9 @@ http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('
   await p.click('[data-d="2026-11-24"]'); await p.waitForSelector('#daySheet[open]');
   assert.equal(await text('#dayTitle'), '11월 24일 화요일'); assert.equal(await text('#dayInfo'), '생리 기간');
   assert.equal(await p.locator('#daySym [data-sym]').count(), 10);
-  await p.click('#dayFlow label:nth-child(2)'); await p.click('[data-sym="복통"]'); await p.click('[data-sym="두통"]'); await p.click('[data-sym="두통"]');
+  await p.click('#dayFlow label:nth-child(2)'); await p.click('#daySym [data-sym="복통"]'); await p.click('#daySym [data-sym="두통"]'); await p.click('#daySym [data-sym="두통"]');
   await answer('어지러움'); await p.click('#daySym [data-add]');
-  assert.equal(await p.getAttribute('[data-sym="어지러움"]', 'aria-pressed'), 'true');
+  assert.equal(await p.getAttribute('#daySym [data-sym="어지러움"]', 'aria-pressed'), 'true');
   await p.fill('#dayNote', '가짜 메모');
   await p.screenshot({ path: os.tmpdir() + '/herday-cycle-day.png' });
   await p.click('#daySave');
@@ -78,8 +78,8 @@ http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('
   assert.equal(await p.isChecked('#dayFlow input[value="보통"]'), true); assert.equal(await p.inputValue('#dayNote'), '가짜 메모');
   await p.click('#dayFlow label:nth-child(2)'); assert.equal(await p.isChecked('#dayFlow input[value="보통"]'), false);
   await p.click('#dayClose');
-  await p.click('[data-d="2026-11-10"]'); assert.equal(await p.locator('[data-sym="어지러움"]').count(), 1);
-  assert.equal(await p.getAttribute('[data-sym="어지러움"]', 'aria-pressed'), 'false');
+  await p.click('[data-d="2026-11-10"]'); assert.equal(await p.locator('#daySym [data-sym="어지러움"]').count(), 1);
+  assert.equal(await p.getAttribute('#daySym [data-sym="어지러움"]', 'aria-pressed'), 'false');
   await p.click('#daySave'); // 빈 기록은 남기지 않음
   assert.equal(await p.evaluate(() => '2026-11-10' in JSON.parse(localStorage.getItem('cycleDays'))), false);
 
@@ -102,6 +102,26 @@ http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('
   // 다시 생리 시작
   await answer('2026-11-23'); await p.click('#cycStart');
 
+  // 화면 아래 「오늘 증상」: 하트 습관처럼 눌러서 오늘 기록, 최근 7일 점
+  assert.equal(await p.locator('#cycSym li').count(), 11); // 기본 10 + 직접 입력 1
+  assert.ok((await text('#cycSym li[data-sym="복통"]')).includes('최근 7일 중 1일'));
+  assert.equal(await p.locator('#cycSym li[data-sym="복통"] .hdots i.on').count(), 1);
+  await p.click('#cycSym .hcheck[data-sym="두통"]');
+  assert.equal(await p.getAttribute('#cycSym .hcheck[data-sym="두통"]', 'aria-pressed'), 'true');
+  await p.click('#cycSym li[data-sym="피로"] span'); // 줄 어디를 눌러도
+  assert.deepEqual(await p.evaluate(() => JSON.parse(localStorage.getItem('cycleDays'))['2026-11-25'].sym), ['두통', '피로']);
+  assert.equal(await p.locator('[data-d="2026-11-25"] .mk').count(), 1);
+  await p.click('#cycSym .hcheck[data-sym="피로"]');
+  await answer('손발 저림'); await p.click('#cycSymAdd');
+  assert.equal(await p.getAttribute('#cycSym .hcheck[data-sym="손발 저림"]', 'aria-pressed'), 'true');
+  assert.deepEqual(await p.evaluate(() => JSON.parse(localStorage.getItem('cycleDays'))['2026-11-25'].sym), ['두통', '손발 저림']);
+  // 그날 기록 창에도 같은 내용
+  await p.click('[data-d="2026-11-25"]'); assert.equal(await p.getAttribute('#daySym [data-sym="두통"]', 'aria-pressed'), 'true'); await p.click('#dayClose');
+  // 다 풀면 오늘 기록이 사라짐
+  await p.click('#cycSym .hcheck[data-sym="두통"]'); await p.click('#cycSym .hcheck[data-sym="손발 저림"]');
+  assert.equal(await p.evaluate(() => '2026-11-25' in JSON.parse(localStorage.getItem('cycleDays'))), false);
+  await p.click('#cycSym .hcheck[data-sym="두통"]');
+
   // 오늘 카드
   await p.evaluate(() => setSection('home'));
   assert.equal(await text('#homeCards [data-sec=cycle] small'), '생리 3일째');
@@ -114,6 +134,7 @@ http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('
     await p.evaluate(k => setSkin(k), k); await p.waitForTimeout(150);
     assert.ok(await p.$eval('body', b => b.scrollWidth <= innerWidth), 'no sideways scroll ' + k);
     if (k === 'main' || k === 'linear') await p.screenshot({ path: `${os.tmpdir()}/herday-cycle-${k}.png`, fullPage: true });
+    if (k === 'clay') await p.screenshot({ path: `${os.tmpdir()}/herday-cycle-clay.png`, fullPage: true });
   }
   await p.click('[data-d="2026-11-24"]'); await p.waitForTimeout(500); await p.screenshot({ path: os.tmpdir() + '/herday-cycle-day-linear.png' });
   await p.click('#dayClose'); await p.evaluate(() => { setSkin('main'); setSection('home'); }); await p.waitForTimeout(600);

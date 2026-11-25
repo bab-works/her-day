@@ -915,6 +915,9 @@
   .cyc-chips .add { color:var(--accent); } .cyc-chips .add svg.i { width:14px; height:14px; vertical-align:-2px; }
   #dayNote { resize:vertical; }
   #perSheet .sheet-foot .row { gap:8px; }
+  .cyc-today { margin:20px 0 12px; } .cyc-today .cal-head { margin:0 4px 10px; }
+  #cycSym li { margin:0; cursor:pointer; } #cycSym .hic svg.i { color:var(--c); } #cycSym .hdots { display:flex; margin-top:6px; }
+  #cycSym .hcheck[aria-pressed="true"] { background:var(--c); } html[data-skin] #cycSym .hcheck { border-radius:50%; box-shadow:none; } /* 리니어·클레이 버튼 모양 막기 */
   .home-sec small.now { color:var(--fg); font-weight:600; }
   #v-cycle .month-pill { background:var(--fill); box-shadow:none; } #v-cycle .cyc-legend + .hint { margin-top:10px; }
 </style>
@@ -929,6 +932,7 @@
   <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.1"/></symbol>
+  <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12h4l2.5-6 5 12 2.5-6h4"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
   <!-- 메뉴(섹션) 아이콘: 선 굵기·크기를 하트와 같게 -->
   <symbol id="i-s-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></symbol>
@@ -969,6 +973,8 @@
       <p class="hint">날짜를 누르면 그날의 생리 양 · 증상 · 메모를 남길 수 있어요</p>
     </div>
     <div class="card"><h2>지난 기록</h2><ul class="tx" id="cycList"></ul></div>
+    <div class="cyc-today"><div class="cal-head"><b>오늘 증상</b><button type="button" class="chip-btn" id="cycSymAdd"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>직접 입력</button></div>
+      <ul class="hlist" id="cycSym"></ul></div>
   </section>
   <section id="v-sec" hidden>
     <div class="card"><h2 id="secHead"></h2><p class="hint" id="secDesc"></p><p class="hint">곧 만들어요</p></div>
