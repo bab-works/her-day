@@ -2,7 +2,7 @@
 // 화면 모양·동작은 하트(bab-works/bab-zip)와 같은 규칙을 따름 (AGENTS.md)
 // 기록은 localStorage에 두고, 로그인하면 본인 계정(Supabase, cloud.js)에도 저장해 다른 기기에서 이어 씀. 남은 볼 수 없음 (supabase.sql의 RLS)
 const $ = s => document.querySelector(s);
-const APP_VERSION = 'herday-v6'; // sw.js의 CACHE와 같아야 함 (tests/version.js가 확인)
+const APP_VERSION = 'herday-v7'; // sw.js의 CACHE와 같아야 함 (tests/version.js가 확인)
 document.addEventListener('pointerdown', () => document.documentElement.classList.add('pointer-focus'), true);
 document.addEventListener('keydown', e => { if (!e.metaKey && !e.ctrlKey && !e.altKey) document.documentElement.classList.remove('pointer-focus'); }, true);
 const store = {
@@ -316,6 +316,21 @@ async function pull(quiet) {
   catch (e) { if (!Cloud.user()) showLogin(); }
 }
 let signUpMode = false;
+const PW_MIN = 8;
+// 새 비밀번호 정하기 (메일 링크로 왔을 때 · 설정에서). 취소하면 false
+async function newPassword(msg) {
+  for (;;) {
+    const pw = await ask(msg, { ok: '바꾸기', input: '', type: 'password' }); if (pw == null) return false;
+    if (pw.length < PW_MIN) { toast(`비밀번호를 ${PW_MIN}자 이상으로 해 주세요`); continue; }
+    try { await Cloud.setPassword(pw); toast('비밀번호를 바꿨어요'); return true; } catch (e) { toast(e.message); }
+  }
+}
+$('#loginForgot').addEventListener('click', async () => {
+  const email = (await ask('가입한 이메일을 적어 주세요. 비밀번호를 새로 정하는 링크를 보내 드려요', { ok: '메일 보내기', input: $('#loginEmail').value.trim(), type: 'email' }))?.trim();
+  if (!email) return;
+  try { await Cloud.forgot(email); toast('메일을 보냈어요. 메일 속 링크를 이 기기에서 눌러 주세요', 6000); } catch (e) { toast(e.message); }
+});
+$('#pwChange').addEventListener('click', () => newPassword('새 비밀번호를 적어 주세요 (8자 이상)'));
 function showLogin() {
   $('#loginPw').value = ''; if (!$('#login').open) $('#login').showModal();
 }
@@ -325,10 +340,12 @@ $('#loginMode').addEventListener('click', () => {
   $('#loginGo').textContent = signUpMode ? '가입하기' : '로그인';
   $('#loginMode').textContent = signUpMode ? '이미 계정이 있어요 · 로그인' : '처음이에요 · 가입하기';
   $('#loginPw').autocomplete = signUpMode ? 'new-password' : 'current-password';
+  $('#loginPw').placeholder = signUpMode ? '비밀번호 (8자 이상)' : '비밀번호'; $('#loginForgot').hidden = signUpMode;
 });
 $('#loginForm').addEventListener('submit', async e => {
   e.preventDefault();
   const email = $('#loginEmail').value.trim(), pw = $('#loginPw').value, go = $('#loginGo');
+  if (signUpMode && pw.length < PW_MIN) return toast(`비밀번호를 ${PW_MIN}자 이상으로 해 주세요`);
   go.disabled = true;
   try {
     if (signUpMode && !(await Cloud.signUp(email, pw))) { toast('메일함에서 인증 링크를 누른 뒤 로그인해 주세요', 6000); $('#loginMode').click(); return; }
@@ -349,4 +366,10 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) pull
 setSkin(skin());
 setSection(store.get('sec', 'home'));
 lockNow();
-if (Cloud.on) { if (Cloud.user()) pull(); else showLogin(); }
+// 메일 링크(비밀번호 재설정)로 열렸으면 그 계정으로 로그인한 뒤 새 비밀번호를 물어봄
+if (Cloud.on) Cloud.fromLink().catch(() => 'expired').then(async kind => {
+  if (kind === 'expired') toast('링크가 만료됐어요. 「비밀번호를 잊었어요」를 다시 눌러 주세요', 6000);
+  if (!Cloud.user()) return showLogin();
+  await pull();
+  if (kind === 'recovery') newPassword('새 비밀번호를 정해 주세요 (8자 이상)');
+});

@@ -8,7 +8,7 @@ http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('
   p.on('pageerror', e => { console.error('ERR', e.message); process.exit(1); });
   p.on('request', q => { const u = q.url(); if (!u.startsWith('http://localhost:8812/') && !u.startsWith(API + '/')) outside.push(u); });
   // 가짜 서버: 사용자·줄(row)은 메모리에. 토큰 = 'tok-' + id. 본인 줄만 돌려줌(서버의 RLS 흉내)
-  const users = { 'a@test.dev': { id: 'u-a', pw: 'secret1' }, 'b@test.dev': { id: 'u-b', pw: 'secret2' } }, rows = { 'u-b': { 'cyclePeriods': [{ id: 'pb', start: '2026-09-02', end: '2026-09-06' }] } }, posts = [];
+  const users = { 'a@test.dev': { id: 'u-a', pw: 'secret1' }, 'b@test.dev': { id: 'u-b', pw: 'secret2' } }, rows = { 'u-b': { 'cyclePeriods': [{ id: 'pb', start: '2026-09-02', end: '2026-09-06' }] } }, posts = [], mails = [];
   const sess = (email, u) => ({ access_token: 'tok-' + u.id, refresh_token: 'ref-' + u.id, expires_in: 3600, user: { id: u.id, email } });
   await p.route(API + '/**', async route => {
     const q = route.request(), u = new URL(q.url()), h = q.headers(), body = q.postDataJSON?.() ?? null, who = (h.authorization || '').replace('Bearer tok-', '');
@@ -17,6 +17,10 @@ http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('
     if (u.pathname === '/auth/v1/signup') { if (users[body.email]) return j(422, { code: 422, error_code: 'user_already_exists', msg: 'exists' }); users[body.email] = { id: 'u-new', pw: body.password }; return j(200, sess(body.email, users[body.email])); }
     if (u.pathname === '/auth/v1/token') { const x = users[body.email]; return x && x.pw === body.password ? j(200, sess(body.email, x)) : j(400, { code: 400, error_code: 'invalid_credentials', msg: 'Invalid login credentials' }); }
     if (u.pathname === '/auth/v1/logout') return j(204);
+    if (u.pathname === '/auth/v1/recover') { mails.push([body.email, u.searchParams.get('redirect_to')]); return j(200, {}); }
+    if (u.pathname === '/auth/v1/user') { const e = Object.keys(users).find(k => users[k].id === who); if (!e) return j(401, { code: 401, error_code: 'bad_jwt' });
+      if (q.method() === 'PUT') { if (body.password === users[e].pw) return j(422, { error_code: 'same_password' }); users[e].pw = body.password; }
+      return j(200, { id: who, email: e }); }
     if (u.pathname === '/rest/v1/herday') {
       assert.ok(who.startsWith('u-'), 'rest calls carry the user token');
       if (q.method() === 'GET') return j(200, rows[who] ? [{ data: rows[who] }] : []);
@@ -37,10 +41,11 @@ http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('
   assert.equal(await toast(), '이메일이나 비밀번호가 맞지 않아요'); assert.equal(await p.isVisible('#login'), true);
   // 이미 있는 이메일로 가입
   await p.click('#loginMode'); assert.equal(await p.textContent('#loginGo'), '가입하기');
-  await p.fill('#loginPw', 'secret1'); await p.click('#loginGo'); await p.waitForTimeout(200);
+  await p.fill('#loginPw', 'short'); await p.click('#loginGo'); assert.equal(await toast(), '비밀번호를 8자 이상으로 해 주세요');
+  await p.fill('#loginPw', 'secret11'); await p.click('#loginGo'); await p.waitForTimeout(200);
   assert.equal(await toast(), '이미 가입한 이메일이에요');
   // 새로 가입 → 옛 기록이 계정으로
-  await p.fill('#loginEmail', 'new@test.dev'); await p.fill('#loginPw', 'secret9'); await p.click('#loginGo'); await p.waitForTimeout(300);
+  await p.fill('#loginEmail', 'new@test.dev'); await p.fill('#loginPw', 'secret99'); await p.click('#loginGo'); await p.waitForTimeout(300);
   assert.equal(await p.isVisible('#login'), false); assert.equal(await toast(), '가입했어요');
   assert.deepEqual(rows['u-new'].cyclePeriods.map(x => x.id), ['old1'], 'old records moved into the account');
   assert.deepEqual(rows['u-new'].cycleSyms, ['어지러움']);
@@ -64,6 +69,18 @@ http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('
   await p.reload(); await p.waitForTimeout(400);
   assert.equal(await p.isVisible('#login'), false);
   assert.deepEqual((await ls('cyclePeriods')).map(x => x.id), ['pb', 'pb2']);
+  // 비밀번호 찾기: 메일 요청 → 메일 링크(#access_token…type=recovery)로 열면 그 계정으로 로그인 + 새 비밀번호(8자 미만은 다시)
+  await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForTimeout(300);
+  await p.fill('#loginEmail', 'b@test.dev'); await p.evaluate(() => { window.__askAuto = (m, inp) => inp && true; }); await p.click('#loginForgot'); await p.waitForTimeout(200);
+  assert.deepEqual(mails, [['b@test.dev', 'http://localhost:8812/']]); assert.ok((await toast()).includes('메일을 보냈어요'));
+  await ctx.addInitScript(() => { const a = ['short', 'secret2', 'newpass99']; window.__askAuto = (m, inp) => inp ? a.shift() : true; });
+  await p.goto('about:blank'); await p.goto('http://localhost:8812/#access_token=tok-u-b&refresh_token=ref-u-b&expires_in=3600&token_type=bearer&type=recovery'); await p.waitForTimeout(500);
+  assert.equal(users['b@test.dev'].pw, 'newpass99', 'short and same passwords refused, then changed');
+  assert.equal(await p.isVisible('#login'), false); assert.equal(await p.evaluate(() => location.hash), '', 'token removed from address');
+  assert.deepEqual((await ls('cyclePeriods')).map(x => x.id), ['pb', 'pb2']);
+  // 만료된 링크
+  await p.evaluate(() => localStorage.clear()); await p.goto('about:blank'); await p.goto('http://localhost:8812/#error=access_denied&error_code=otp_expired'); await p.waitForTimeout(300);
+  assert.ok((await toast()).includes('링크가 만료됐어요')); assert.equal(await p.isVisible('#login'), true);
   // 계정 기록과 기기 기록 합치기 (주인 없는 기록일 때만 쓰임)
   assert.deepEqual(await p.evaluate(() => Cloud.merge({ cyclePeriods: [{ id: 1, s: 'l' }, { id: 2 }], cycleDays: { a: 1, b: 1 }, cycleSyms: ['x'] }, { cyclePeriods: [{ id: 1, s: 'r' }], cycleDays: { b: 2 }, cycleSyms: ['x', 'y'] })),
     { cyclePeriods: [{ id: 2 }, { id: 1, s: 'r' }], cycleDays: { a: 1, b: 2 }, cycleSyms: ['x', 'y'] });

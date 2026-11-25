@@ -10,7 +10,8 @@ const Cloud = (() => {
     set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
   const KO = { invalid_credentials: '이메일이나 비밀번호가 맞지 않아요', user_already_exists: '이미 가입한 이메일이에요', email_exists: '이미 가입한 이메일이에요',
     weak_password: '비밀번호를 6자 이상으로 해 주세요', email_not_confirmed: '메일함에서 인증 링크를 먼저 눌러 주세요', validation_failed: '이메일 주소를 확인해 주세요',
-    email_address_invalid: '이메일 주소를 확인해 주세요', over_email_send_rate_limit: '잠시 뒤에 다시 해 주세요', over_request_rate_limit: '잠시 뒤에 다시 해 주세요' };
+    email_address_invalid: '이메일 주소를 확인해 주세요', over_email_send_rate_limit: '잠시 뒤에 다시 해 주세요', over_request_rate_limit: '잠시 뒤에 다시 해 주세요',
+    same_password: '지금과 다른 비밀번호로 해 주세요', session_not_found: '다시 로그인해 주세요' };
 
   async function call(path, { method = 'GET', body, auth, headers = {} } = {}) {
     let r;
@@ -72,11 +73,23 @@ const Cloud = (() => {
     const j = await call('/auth/v1/signup', { method: 'POST', body: { email, password } });
     if (!j?.access_token) return false; keep(j); return true;
   }
+  // 비밀번호 찾기: 가입한 메일로 링크를 보냄(없는 메일이어도 같은 답이라 가입 여부가 드러나지 않음). 링크는 이 앱 주소로 돌아옴
+  async function forgot(email) { await call('/auth/v1/recover?redirect_to=' + encodeURIComponent(location.origin + location.pathname), { method: 'POST', body: { email } }); }
+  // 메일 링크로 열렸을 때: 주소 # 뒤 토큰으로 로그인하고 주소에서 지움. 'recovery'(비밀번호 재설정) · 'expired'(만료·잘못된 링크) · null
+  async function fromLink() {
+    const h = new URLSearchParams(location.hash.slice(1)); if (!h.has('access_token') && !h.has('error')) return null;
+    history.replaceState(null, '', location.pathname + location.search);
+    if (!h.has('access_token')) return 'expired';
+    const user = await call('/auth/v1/user', { auth: h.get('access_token') });
+    keep({ access_token: h.get('access_token'), refresh_token: h.get('refresh_token'), expires_in: +h.get('expires_in') || 3600, user });
+    return h.get('type');
+  }
+  async function setPassword(password) { await call('/auth/v1/user', { method: 'PUT', auth: await token(), body: { password } }); }
   // 로그아웃: 다음 사람이 이 기기로 로그인해도 기록이 섞이거나 보이지 않게 기기의 기록을 지움 (계정에는 남음)
   async function signOut() {
     clearTimeout(timer);
     const t = await token().catch(() => null); if (t) call('/auth/v1/logout', { method: 'POST', auth: t }).catch(() => {});
     ['auth', 'owner', 'dirty', ...SYNC].forEach(k => ls.set(k, null));
   }
-  return { on: !!C.url, user: () => ls.get('auth'), dirty: () => !!ls.get('dirty'), signIn, signUp, signOut, sync, push, changed, merge, SYNC };
+  return { on: !!C.url, user: () => ls.get('auth'), dirty: () => !!ls.get('dirty'), signIn, signUp, signOut, forgot, fromLink, setPassword, sync, push, changed, merge, SYNC };
 })();

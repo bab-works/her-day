@@ -25,7 +25,7 @@ AI 코딩 도우미(Codex, Claude 등)가 이 저장소를 고칠 때 먼저 읽
 |---|---|
 | `index.html` | 화면 HTML + CSS(하트의 테마 5종·카드·입력칸·시트·메뉴 스타일 그대로) + SVG 아이콘(`<symbol id="i-…">`) |
 | `app.js` | 앱 코드 전부(빌드 없음). `$()` = querySelector, `store` = localStorage, `ask()`, `toast()`, `setSection()`, 테마, Face ID 잠금, 당겨서 새로고침, 새 버전 확인 |
-| `cloud.js` | 가입·로그인(Supabase Auth)과 기록 올리기·받기. 주소·공개 키는 맨 위 `SUPA_URL`·`SUPA_KEY`. 테스트는 `window.__cloud`로 가짜 서버를 씀 |
+| `cloud.js` | 가입·로그인·비밀번호 찾기(Supabase Auth, 메일 링크는 앱 주소 # 뒤 토큰으로 돌아옴)와 기록 올리기·받기. 주소·공개 키는 맨 위 `SUPA_URL`·`SUPA_KEY`. 테스트는 `window.__cloud`로 가짜 서버를 씀 |
 | `supabase.sql` | 서버 표와 「본인만」 규칙(RLS). Supabase SQL Editor에서 한 번 실행 |
 | `sw.js` | 서비스 워커(오프라인 캐시) |
 | `manifest.webmanifest`, `icon-*.png` | 홈 화면 설치 정보와 아이콘 |
@@ -71,4 +71,4 @@ AI 코딩 도우미(Codex, Claude 등)가 이 저장소를 고칠 때 먼저 읽
 2. 약·영양제: 목록 + 오늘 먹었는지 체크(하트 습관 화면 방식 재사용)
 3. 수면: 잠든·일어난 시간, 잠의 질, 주간 그래프
 4. 네일: 시술 기록(날짜·샵·가격·사진은 기기 안에만), 다음 관리일 알림
-5. 비밀번호 찾기(재설정 메일), 계정 지우기
+5. 계정 지우기

@@ -993,6 +993,7 @@
   <div id="acctBox" hidden><p class="set-label">계정</p>
   <div class="set-group">
     <div class="set-row"><span class="set-grow"><span id="acctEmail"></span><small id="acctSync">기록은 계정에 저장돼요</small></span><button type="button" id="logout">로그아웃</button></div>
+    <button type="button" class="set-row set-link" id="pwChange"><span>비밀번호 바꾸기</span><span class="chev" aria-hidden="true">›</span></button>
   </div></div>
   <p class="set-label">보안</p>
   <div class="set-group">
@@ -1042,9 +1043,10 @@
 <dialog id="login" class="lock" aria-labelledby="loginTitle">
   <form class="lock-in login-in" id="loginForm"><img src="logo.svg" alt="" width="56" height="56"><h2 id="loginTitle">her-day</h2><p class="hint" id="loginHint">로그인하면 다른 기기에서도 기록을 볼 수 있어요</p>
     <input type="email" id="loginEmail" autocomplete="email" placeholder="이메일" aria-label="이메일" required>
-    <input type="password" id="loginPw" autocomplete="current-password" placeholder="비밀번호 (6자 이상)" aria-label="비밀번호" minlength="6" required>
+    <input type="password" id="loginPw" autocomplete="current-password" placeholder="비밀번호" aria-label="비밀번호" required>
     <button id="loginGo" class="primary">로그인</button>
-    <button type="button" id="loginMode" class="login-mode">처음이에요 · 가입하기</button></form>
+    <button type="button" id="loginMode" class="login-mode">처음이에요 · 가입하기</button>
+    <button type="button" id="loginForgot" class="login-mode">비밀번호를 잊었어요</button></form>
 </dialog>
 
 <dialog id="ask" class="ask" aria-labelledby="askMsg">
