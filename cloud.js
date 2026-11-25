@@ -5,7 +5,7 @@ const SUPA_URL = 'https://utkbghjzddwkvgnacwyn.supabase.co';
 const SUPA_KEY = 'sb_publishable_4MHAZLRgpoPgL-EepOSAgw__MxXQUfn'; // 공개 키(publishable). secret 키는 절대 넣지 않음
 const Cloud = (() => {
   const C = window.__cloud || { url: SUPA_URL, key: SUPA_KEY }; // 테스트는 window.__cloud로 바꿔 씀
-  const SYNC = ['cyclePeriods', 'cycleDays', 'cycleSyms']; // 건강 기록만 올림. 테마·잠금·보던 화면은 기기마다
+  const SYNC = ['cyclePeriods', 'cycleDays', 'cycleSyms', 'care_nail', 'care_skin', 'care_hair', 'careGap', 'interests']; // 기록과 관심 항목만 올림. 테마·잠금·보던 화면은 기기마다
   const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
     set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
   const KO = { invalid_credentials: '이메일이나 비밀번호가 맞지 않아요', user_already_exists: '이미 가입한 이메일이에요', email_exists: '이미 가입한 이메일이에요',

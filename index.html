@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="her-day">
-<meta name="description" content="주기 · 수면 · 약과 영양제 · 네일을 나만 보는 곳에 기록해요">
+<meta name="description" content="여성을 위한 종합 뷰티 · 건강 기록. 주기 · 네일 · 피부 시술 · 미용실 · 수면 · 약과 영양제">
 <meta name="robots" content="noindex">
 <script>/* 고른 테마를 그리기 전에 먼저 적용 (깜빡임 없게) */ try { var s = JSON.parse(localStorage.getItem('skin')); if (s) document.documentElement.dataset.skin = s; } catch (e) {}</script>
 <style>
@@ -919,6 +919,9 @@
   #cycSym li { margin:0; cursor:pointer; } #cycSym .hic svg.i { color:var(--c); } #cycSym .hdots { display:flex; margin-top:6px; }
   #cycSym .hcheck[aria-pressed="true"] { background:var(--c); } html[data-skin] #cycSym .hcheck { border-radius:50%; box-shadow:none; } /* 리니어·클레이 버튼 모양 막기 */
   .home-sec small.now { color:var(--fg); font-weight:600; }
+  .home-add { background:transparent; box-shadow:none; border:1.5px dashed var(--line); } .home-add svg.i { color:var(--muted); }
+  html[data-skin] .home-add { box-shadow:none !important; }
+  #careSheet label.f { margin-top:10px; } #careSheet .grid2 label.f { margin-top:0; }
   #v-cycle .month-pill { background:var(--fill); box-shadow:none; } #v-cycle .cyc-legend + .hint { margin-top:10px; }
 </style>
 </head>
@@ -939,6 +942,8 @@
   <symbol id="i-s-cycle" viewBox="0 0 24 24"><path d="M12 3c3.5 4.2 6 7.6 6 10.8A6 6 0 0 1 6 13.8C6 10.6 8.5 7.2 12 3z"/></symbol>
   <symbol id="i-s-sleep" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></symbol>
   <symbol id="i-s-meds" viewBox="0 0 24 24"><rect x="3" y="8.5" width="18" height="7" rx="3.5" transform="rotate(-45 12 12)"/><path d="M9.5 9.5l5 5"/></symbol>
+  <symbol id="i-s-skin" viewBox="0 0 24 24"><path d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z"/><path d="M18.5 15v5M16 17.5h5"/></symbol>
+  <symbol id="i-s-hair" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.2 8.2L20 20M8.2 15.8L20 4"/></symbol>
   <symbol id="i-s-nail" viewBox="0 0 24 24"><rect x="9.5" y="2.5" width="5" height="6" rx="1"/><path d="M10.5 8.5v2.5M13.5 8.5v2.5"/><rect x="6" y="11" width="12" height="10.5" rx="3"/><path d="M9 15.5h6"/></symbol>
 </svg>
 
@@ -954,7 +959,7 @@
   <section id="v-home">
     <div class="dash-hi"><small id="dashDate"></small><h2 id="dashHi">오늘도 나를 챙겨요</h2></div>
     <div id="homeCards"></div>
-    <div class="card"><h2>나만 보는 기록</h2><p class="hint">여기 적는 기록은 이 휴대폰 안에만 저장돼요. 다른 사람(만든 사람 포함)은 볼 수 없어요.</p></div>
+    <div class="card"><h2>나만 보는 기록</h2></div>
   </section>
   <section id="v-cycle" hidden>
     <div class="card">
@@ -975,6 +980,15 @@
     <div class="card"><h2>지난 기록</h2><ul class="tx" id="cycList"></ul></div>
     <div class="cyc-today"><div class="cal-head"><b>오늘 증상</b><button type="button" class="chip-btn" id="cycSymAdd"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>직접 입력</button></div>
       <ul class="hlist" id="cycSym"></ul></div>
+  </section>
+  <section id="v-care" hidden>
+    <div class="card">
+      <h2>다음 관리 예상</h2>
+      <p class="cyc-now" id="careNow"></p>
+      <ul class="cyc-facts" id="careFacts"></ul>
+      <div class="row cyc-btns"><button type="button" class="primary" id="careAdd"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>기록 추가</button><button type="button" id="careGap"><svg class="i" aria-hidden="true"><use href="#i-sync"/></svg>관리 주기</button></div>
+    </div>
+    <div class="card"><h2>지난 기록</h2><ul class="tx" id="careList"></ul></div>
   </section>
   <section id="v-sec" hidden>
     <div class="card"><h2 id="secHead"></h2><p class="hint" id="secDesc"></p><p class="hint">곧 만들어요</p></div>
@@ -1033,6 +1047,24 @@
   <div class="grid2"><label class="f">시작한 날<input type="date" id="perStart"></label><label class="f">끝난 날<input type="date" id="perEnd"></label></div>
   <p class="hint">끝난 날을 비워 두면 아직 생리 중으로 봐요</p>
   <div class="row sheet-foot"><button type="button" class="danger" id="perDel">지우기</button><span class="row"><button type="button" id="perCancel">취소</button><button type="button" class="primary" id="perSave">저장</button></span></div>
+</dialog>
+
+<dialog id="careSheet" class="sheet prefs" aria-labelledby="careTitle">
+  <div class="sheet-grab" aria-hidden="true"><span></span></div>
+  <h2 id="careTitle" class="prefs-title"></h2>
+  <div class="grid2"><label class="f">다녀온 날<input type="date" id="careDate"></label><label class="f">금액(원)<input type="number" id="carePrice" inputmode="numeric" min="0" placeholder="0"></label></div>
+  <label class="f">받은 관리<input id="careWhat" maxlength="30"></label>
+  <label class="f">장소<input id="carePlace" maxlength="30"></label>
+  <label class="f">메모<textarea id="careNote" rows="2" placeholder="디자인 · 담당 선생님 · 다음에 바꿀 점"></textarea></label>
+  <div class="row sheet-foot"><button type="button" class="danger" id="careDel">지우기</button><span class="row"><button type="button" id="careCancel">취소</button><button type="button" class="primary" id="careSave">저장</button></span></div>
+</dialog>
+
+<dialog id="intSheet" class="sheet prefs" aria-labelledby="intTitle">
+  <div class="sheet-grab" aria-hidden="true"><span></span></div>
+  <h2 id="intTitle" class="prefs-title">관심 항목</h2>
+  <p class="hint" style="text-align:center">고른 항목만 보여요. 나중에 오늘 화면의 「관심 항목 추가」에서 바꿀 수 있어요</p>
+  <div class="set-group" id="intList"></div>
+  <div class="row sheet-foot" style="justify-content:flex-end"><button type="button" class="primary" id="intSave">완료</button></div>
 </dialog>
 
 <dialog id="lock" class="lock" aria-label="잠김">

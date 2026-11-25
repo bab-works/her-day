@@ -4,8 +4,10 @@ AI 코딩 도우미(Codex, Claude 등)가 이 저장소를 고칠 때 먼저 읽
 
 ## 1. 이 앱은
 
-- **her-day** — 여성 중심의 개인 관리 웹 앱(PWA). 휴대폰 홈 화면에 설치해 쓴다.
-- 섹션: 오늘(home) · 주기(cycle: 생리·배란일·PMS) · 수면(sleep) · 약·영양제(meds) · 네일(nail).
+- **her-day** — 여성을 위한 종합 뷰티·건강 기록 웹 앱(PWA). 휴대폰 홈 화면에 설치해 쓴다.
+- 섹션: 오늘(home) · 주기(cycle: 생리·배란일·PMS) · 수면(sleep) · 약·영양제(meds) · 네일(nail) · 피부 시술(skin) · 미용실(hair).
+- 네일·피부 시술·미용실은 한 화면(`#v-care`, app.js `CARE`)을 같이 쓴다: 다녀온 날 기록(`care_<섹션>`)과 다음 관리일. 새 뷰티 항목도 `SECTIONS`와 `CARE`에 한 줄씩 더하면 된다.
+- 관심 항목(`interests`): 가입 뒤 처음 한 번 고르고, 고른 섹션만 오늘 화면·메뉴에 보인다. 오늘 화면의 「관심 항목 추가」로 바꾼다. 새로 올릴 기록 키는 `cloud.js`의 `SYNC`에 넣는다.
 - 주소: https://bab-works.github.io/her-day/ (GitHub Pages, `main`이 그대로 배포됨)
 - 형제 앱 **하트**(bab-works/bab-zip)에서 화면 뼈대와 디자인을 그대로 가져왔다. 두 앱은 코드·데이터를 공유하지 않는다.
 

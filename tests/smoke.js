@@ -7,12 +7,12 @@ http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('
   p.on('request', q => { if (!q.url().startsWith('http://localhost:8810/')) outside.push(q.url()); });
   await p.goto('http://localhost:8810/'); await p.waitForTimeout(500);
   assert.equal(await p.textContent('#appTitle'), '오늘');
-  assert.deepEqual(await p.$$eval('#homeCards [data-sec]', l => l.map(x => x.dataset.sec)), ['cycle', 'sleep', 'meds', 'nail']);
+  assert.deepEqual(await p.$$eval('#homeCards [data-sec]', l => l.map(x => x.dataset.sec)), ['cycle', 'sleep', 'meds', 'nail', 'skin', 'hair']);
   assert.ok(await p.$eval('body', b => b.scrollWidth <= innerWidth), 'no sideways scroll at phone width');
   await p.screenshot({ path: require('os').tmpdir() + '/herday-home.png' });
   // 메뉴 → 수면
   await p.click('#menuBtn'); await p.waitForSelector('#menu[open]'); await p.waitForTimeout(450);
-  assert.equal(await p.locator('#menuList [data-sec]').count(), 5);
+  assert.equal(await p.locator('#menuList [data-sec]').count(), 7);
   await p.click('#menuList [data-sec=sleep]'); await p.waitForTimeout(600);
   assert.equal(await p.textContent('#appTitle'), '수면'); assert.equal(await p.locator('#menu[open]').count(), 0);
   // 오늘 카드 → 주기

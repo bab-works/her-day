@@ -50,6 +50,10 @@ http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('
   assert.deepEqual(rows['u-new'].cyclePeriods.map(x => x.id), ['old1'], 'old records moved into the account');
   assert.deepEqual(rows['u-new'].cycleSyms, ['어지러움']);
   assert.equal(await ls('owner'), 'u-new');
+  // 가입 뒤 관심 항목 고르기 → 계정에 저장
+  assert.equal(await p.isVisible('#intSheet'), true);
+  await p.click('#intList label:has(input[value=sleep])'); await p.click('#intSave'); await p.waitForTimeout(1000);
+  assert.equal(rows['u-new'].interests.includes('sleep'), false); assert.equal(rows['u-new'].interests.includes('nail'), true);
   // 새 기록 → 잠깐 뒤 올라감
   await p.evaluate(() => { window.__askAuto = () => '2026-11-20'; setSection('cycle'); }); await p.click('#cycStart'); await p.waitForTimeout(1100);
   assert.deepEqual(rows['u-new'].cyclePeriods.map(x => x.start), ['2026-10-28', '2026-11-20']);
@@ -63,6 +67,7 @@ http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('
   await p.click('#loginMode'); assert.equal(await p.textContent('#loginGo'), '로그인');
   await p.fill('#loginEmail', 'b@test.dev'); await p.fill('#loginPw', 'secret2'); await p.click('#loginGo'); await p.waitForTimeout(300);
   assert.deepEqual((await ls('cyclePeriods')).map(x => x.id), ['pb']);
+  assert.equal(await p.isVisible('#intSheet'), true, 'b has not picked interests yet'); await p.click('#intSave'); await p.waitForTimeout(1000);
   assert.deepEqual(rows['u-new'].cyclePeriods.length, 2, 'other account untouched');
   // 다시 열면 로그인 유지, 서버에서 받아 옴 (다른 기기에서 바뀐 기록)
   rows['u-b'].cyclePeriods.push({ id: 'pb2', start: '2026-10-01', end: '2026-10-05' });

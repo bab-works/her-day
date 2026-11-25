@@ -1,7 +1,7 @@
 {
   "name": "her-day",
   "short_name": "her-day",
-  "description": "주기 · 수면 · 약과 영양제 · 네일을 나만 보는 곳에 기록해요",
+  "description": "여성을 위한 종합 뷰티 · 건강 기록. 주기 · 네일 · 피부 시술 · 미용실 · 수면 · 약과 영양제",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

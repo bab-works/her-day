@@ -1,8 +1,8 @@
-// her-day: 주기 · 수면 · 약과 영양제 · 네일을 나만 보는 곳에 기록하는 앱
+// her-day: 여성을 위한 종합 뷰티 · 건강 기록 앱 (주기 · 수면 · 약과 영양제 · 네일 · 피부 시술 · 미용실)
 // 화면 모양·동작은 하트(bab-works/bab-zip)와 같은 규칙을 따름 (AGENTS.md)
 // 기록은 localStorage에 두고, 로그인하면 본인 계정(Supabase, cloud.js)에도 저장해 다른 기기에서 이어 씀. 남은 볼 수 없음 (supabase.sql의 RLS)
 const $ = s => document.querySelector(s);
-const APP_VERSION = 'herday-v7'; // sw.js의 CACHE와 같아야 함 (tests/version.js가 확인)
+const APP_VERSION = 'herday-v8'; // sw.js의 CACHE와 같아야 함 (tests/version.js가 확인)
 document.addEventListener('pointerdown', () => document.documentElement.classList.add('pointer-focus'), true);
 document.addEventListener('keydown', e => { if (!e.metaKey && !e.ctrlKey && !e.altKey) document.documentElement.classList.remove('pointer-focus'); }, true);
 const store = {
@@ -42,25 +42,45 @@ const SECTIONS = {
   cycle: { title: '주기', desc: '생리 · 배란일 · PMS 기록과 다음 주기 예상' },
   sleep: { title: '수면', desc: '잠든 시간 · 일어난 시간 · 잠의 질' },
   meds: { title: '약 · 영양제', desc: '먹을 약과 영양제, 오늘 먹었는지 체크' },
-  nail: { title: '네일', desc: '시술 날짜 · 샵 · 디자인 사진 · 다음 관리일' },
+  nail: { title: '네일', desc: '시술 날짜 · 샵 · 다음 관리일' },
+  skin: { title: '피부 시술', desc: '피부과 · 관리 날짜와 다음 시술일' },
+  hair: { title: '미용실', desc: '커트 · 염색 · 펌 날짜와 다음 방문일' },
 };
+// 관심 항목: 고른 섹션만 오늘 화면·메뉴에 보임. 고른 적 없으면(null) 전부
+const INTERESTS = Object.keys(SECTIONS).filter(k => k !== 'home');
+function shown() { const i = store.get('interests', null); return Array.isArray(i) ? INTERESTS.filter(k => i.includes(k)) : INTERESTS; }
 let sec = 'home';
 function setSection(k) {
-  sec = SECTIONS[k] ? k : 'home'; store.set('sec', sec);
+  sec = shown().includes(k) ? k : 'home'; store.set('sec', sec);
   $('#appTitle').textContent = SECTIONS[sec].title;
-  const own = sec === 'home' || sec === 'cycle'; // 화면이 따로 있는 섹션
-  $('#v-home').hidden = sec !== 'home'; $('#v-cycle').hidden = sec !== 'cycle'; $('#v-sec').hidden = own;
-  if (sec === 'home') renderHome(); else if (sec === 'cycle') renderCycle(); else { $('#secHead').textContent = SECTIONS[sec].title; $('#secDesc').textContent = SECTIONS[sec].desc; }
-  const v = $(own ? '#v-' + sec : '#v-sec'); v.classList.remove('enter'); v.offsetWidth; v.classList.add('enter');
+  const care = !!CARE[sec], own = sec === 'home' || sec === 'cycle'; // 화면이 따로 있는 섹션
+  $('#v-home').hidden = sec !== 'home'; $('#v-cycle').hidden = sec !== 'cycle'; $('#v-care').hidden = !care; $('#v-sec').hidden = own || care;
+  if (sec === 'home') renderHome(); else if (sec === 'cycle') renderCycle(); else if (care) renderCare(); else { $('#secHead').textContent = SECTIONS[sec].title; $('#secDesc').textContent = SECTIONS[sec].desc; }
+  const v = $(care ? '#v-care' : own ? '#v-' + sec : '#v-sec'); v.classList.remove('enter'); v.offsetWidth; v.classList.add('enter');
   window.scrollTo(0, 0);
 }
 function renderHome() {
   const d = new Date();
   $('#dashDate').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${'일월화수목금토'[d.getDay()]}요일`;
-  $('#homeCards').innerHTML = Object.entries(SECTIONS).filter(([k]) => k !== 'home').map(([k, s]) =>
-    `<button type="button" class="card home-sec" data-sec="${k}"><svg class="i" aria-hidden="true"><use href="#i-s-${k}"/></svg><span><b>${esc(s.title)}</b>${k === 'cycle' ? `<small class="now">${esc(cycleNow())}</small>` : `<small>${esc(s.desc)}</small>`}</span></button>`).join('');
+  $('#homeCards').innerHTML = shown().map(k => {
+    const s = SECTIONS[k], now = k === 'cycle' ? cycleNow() : CARE[k] && visits(k).length ? careNow(k) : '';
+    return `<button type="button" class="card home-sec" data-sec="${k}"><svg class="i" aria-hidden="true"><use href="#i-s-${k}"/></svg><span><b>${esc(s.title)}</b>${now ? `<small class="now">${esc(now)}</small>` : `<small>${esc(s.desc)}</small>`}</span></button>`;
+  }).join('') + '<button type="button" class="card home-sec home-add" data-add="1"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg><span><b>관심 항목 추가</b><small>보고 싶은 항목을 더 고를 수 있어요</small></span></button>';
 }
-$('#homeCards').addEventListener('click', e => { const k = e.target.closest('[data-sec]')?.dataset.sec; if (k) setSection(k); });
+$('#homeCards').addEventListener('click', e => { const b = e.target.closest('[data-sec], [data-add]'); if (b?.dataset.add) openInterests(); else if (b) setSection(b.dataset.sec); });
+
+// 관심 항목 고르기 (가입 뒤 처음 한 번, 그 뒤엔 「관심 항목 추가」에서)
+function openInterests() {
+  const on = shown();
+  $('#intList').innerHTML = INTERESTS.map(k => `<label class="set-row switch"><span class="set-grow">${esc(SECTIONS[k].title)}<small>${esc(SECTIONS[k].desc)}</small></span><input type="checkbox" value="${k}" ${on.includes(k) ? 'checked' : ''}><i aria-hidden="true"></i></label>`).join('');
+  $('#intSheet').showModal();
+}
+$('#intSave').addEventListener('click', () => {
+  const pick = [...document.querySelectorAll('#intList input:checked')].map(i => i.value);
+  if (!pick.length) return toast('하나 이상 골라 주세요');
+  store.set('interests', pick); $('#intSheet').close(); setSection(sec); toast('관심 항목을 저장했어요');
+});
+const askInterests = () => { if (store.get('interests', null) == null && !$('#intSheet').open) openInterests(); };
 
 // ── 주기: 생리 기록 · 달력 · 예상 · PMS (계산은 cycle.js) ──
 // 기록: cyclePeriods [{id, start, end}] · cycleDays {날짜: {flow, sym[], note}} · cycleSyms [직접 입력한 증상]
@@ -203,11 +223,78 @@ $('#daySave').addEventListener('click', () => {
   store.set('cycleDays', all); $('#daySheet').close(); renderCycle(); toast(`${md(dayKey)} 기록을 저장했어요`);
 });
 
+// ── 네일 · 피부 시술 · 미용실: 다녀온 날 기록과 다음 관리일 (세 섹션이 같은 화면을 씀) ──
+// 기록: care_<섹션> [{id, date, what, place, price, note}] · careGap {섹션: 직접 정한 관리 주기(일)}
+const CARE = {
+  nail: { gap: 21, what: '젤네일, 케어, 패디', place: '네일샵' },
+  skin: { gap: 28, what: '레이저, 보톡스, 관리', place: '피부과 · 에스테틱' },
+  hair: { gap: 42, what: '커트, 염색, 펌', place: '미용실' },
+};
+const visits = k => [...store.get('care_' + k, [])].sort((a, b) => (a.date < b.date ? 1 : -1)); // 최근 것 먼저
+function careStats(k) {
+  const v = visits(k), t = Cycle.today(), gaps = v.slice(0, 6).map((x, i) => v[i + 1] && Cycle.diff(v[i + 1].date, x.date)).filter(g => g > 0);
+  const avg = gaps.length ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : 0, mine = store.get('careGap', {})[k];
+  const gap = mine || avg || CARE[k].gap, last = v[0]?.date, next = last && Cycle.add(last, gap);
+  return { v, t, gap, mine: !!mine, avg, last, next, left: next ? Cycle.diff(t, next) : 0 };
+}
+function careNow(k) {
+  const s = careStats(k);
+  if (!s.last) return '다녀온 날을 기록해 보세요';
+  return s.left > 0 ? `다음 관리까지 ${s.left}일` : s.left === 0 ? '오늘이 관리 예정일이에요' : `관리 예정일이 ${-s.left}일 지났어요`;
+}
+const won = n => n.toLocaleString('ko-KR') + '원';
+function renderCare() {
+  const s = careStats(sec), y = s.t.slice(0, 4), spent = s.v.filter(x => x.date.startsWith(y)).reduce((a, x) => a + (+x.price || 0), 0);
+  $('#careNow').textContent = careNow(sec);
+  $('#careFacts').innerHTML = [s.last && ['마지막 관리', `${md(s.last)} · ${Cycle.diff(s.last, s.t)}일 전`], s.next && ['다음 관리 예상', md(s.next)],
+    ['관리 주기', `${s.gap}일${s.mine ? '' : s.avg ? ' (평균)' : ''}`], spent && ['올해 쓴 금액', won(spent)]]
+    .filter(Boolean).map(([k, v]) => `<li><small>${k}</small><b>${v}</b></li>`).join('');
+  $('#careList').innerHTML = s.v.map((x, i) => {
+    const sub = [x.place, +x.price ? won(+x.price) : '', s.v[i + 1] && `${Cycle.diff(s.v[i + 1].date, x.date)}일 만에`, x.date.slice(0, 4) !== y && x.date.slice(0, 4) + '년'].filter(Boolean).join(' · ');
+    return `<li data-id="${esc(x.id)}"><div><span>${md(x.date)} · ${esc(x.what || SECTIONS[sec].title)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}</div><span class="chev" aria-hidden="true">›</span></li>`;
+  }).join('') || '<li class="empty">아직 기록이 없어요. 「기록 추가」를 눌러 보세요</li>';
+}
+let careId = null;
+function openCare(x) {
+  careId = x?.id || null; const c = CARE[sec];
+  $('#careTitle').textContent = `${SECTIONS[sec].title} ${x ? '기록 고치기' : '기록 추가'}`;
+  $('#careDate').value = x?.date || Cycle.today(); $('#carePrice').value = x?.price || '';
+  $('#careWhat').value = x?.what || ''; $('#careWhat').placeholder = c.what;
+  $('#carePlace').value = x?.place || ''; $('#carePlace').placeholder = c.place;
+  $('#careNote').value = x?.note || ''; $('#careDel').hidden = !x; $('#careSheet').showModal();
+}
+$('#careAdd').addEventListener('click', () => openCare());
+$('#careList').addEventListener('click', e => { const x = visits(sec).find(q => q.id === e.target.closest('[data-id]')?.dataset.id); if (x) openCare(x); });
+$('#careCancel').addEventListener('click', () => $('#careSheet').close());
+$('#careSave').addEventListener('click', () => {
+  const date = $('#careDate').value, price = $('#carePrice').value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return toast('날짜를 골라 주세요');
+  if (date > Cycle.today()) return toast('앞으로의 날짜는 기록할 수 없어요');
+  if (price && !(+price >= 0)) return toast('금액은 숫자로 적어 주세요');
+  const x = { id: careId || Date.now().toString(36) + Math.random().toString(36).slice(2, 6), date, what: $('#careWhat').value.trim().slice(0, 30),
+    place: $('#carePlace').value.trim().slice(0, 30), price: price ? Math.round(+price) : 0, note: $('#careNote').value.trim() };
+  const all = store.get('care_' + sec, []);
+  store.set('care_' + sec, careId ? all.map(q => (q.id === careId ? x : q)) : [...all, x]);
+  $('#careSheet').close(); renderCare(); toast(careId ? '고쳤어요' : `${md(date)} 기록을 저장했어요`);
+});
+$('#careDel').addEventListener('click', async () => {
+  if (!(await ask('이 기록을 지울까요?', { ok: '지우기', danger: true }))) return;
+  store.set('care_' + sec, store.get('care_' + sec, []).filter(q => q.id !== careId)); $('#careSheet').close(); renderCare(); toast('지웠어요');
+});
+$('#careGap').addEventListener('click', async () => {
+  const s = careStats(sec), v = await ask('며칠마다 관리하세요? 비워 두면 기록으로 계산해요', { ok: '저장', input: s.mine ? String(s.gap) : '', type: 'number' });
+  if (v == null) return;
+  const n = Math.round(+v), g = store.get('careGap', {});
+  if (v.trim() && !(n >= 1 && n <= 365)) return toast('1에서 365 사이로 적어 주세요');
+  if (v.trim()) g[sec] = n; else delete g[sec];
+  store.set('careGap', g); renderCare();
+});
+
 // 사이드 메뉴: --p(열린 정도 0~1)로 하트와 같은 곡선으로 열고 닫음
 const root = document.documentElement, menuP = p => root.style.setProperty('--p', p);
 function openMenu() {
-  $('#menuList').innerHTML = Object.entries(SECTIONS).map(([k, s]) =>
-    `<button type="button" data-sec="${k}" ${k === sec ? 'aria-current="page"' : ''}><svg class="i" aria-hidden="true"><use href="#i-s-${k}"/></svg>${esc(s.title)}</button>`).join('');
+  $('#menuList').innerHTML = ['home', ...shown()].map(k =>
+    `<button type="button" data-sec="${k}" ${k === sec ? 'aria-current="page"' : ''}><svg class="i" aria-hidden="true"><use href="#i-s-${k}"/></svg>${esc(SECTIONS[k].title)}</button>`).join('');
   menuP(0); root.classList.add('menu-open'); $('#menu').showModal(); $('#menu').offsetWidth;
   requestAnimationFrame(() => menuP(1));
 }
@@ -312,7 +399,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 // 계정 기록을 받아 와서 화면을 다시 그림 (무언가 입력 중이면 화면은 그대로)
 async function pull(quiet) {
   if (!Cloud.on || !Cloud.user()) return;
-  try { if (await Cloud.sync() && !quiet && !document.querySelector('dialog[open]')) setSection(sec); }
+  try { if (await Cloud.sync() && !quiet && !document.querySelector('dialog[open]')) { setSection(sec); askInterests(); } }
   catch (e) { if (!Cloud.user()) showLogin(); }
 }
 let signUpMode = false;
@@ -350,7 +437,7 @@ $('#loginForm').addEventListener('submit', async e => {
   try {
     if (signUpMode && !(await Cloud.signUp(email, pw))) { toast('메일함에서 인증 링크를 누른 뒤 로그인해 주세요', 6000); $('#loginMode').click(); return; }
     if (!signUpMode) await Cloud.signIn(email, pw);
-    await Cloud.sync(); $('#login').close(); setSection(sec); toast(signUpMode ? '가입했어요' : '로그인했어요');
+    await Cloud.sync(); $('#login').close(); setSection(sec); toast(signUpMode ? '가입했어요' : '로그인했어요'); askInterests();
   } catch (err) { toast(err.message); }
   finally { go.disabled = false; }
 });
