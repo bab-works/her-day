@@ -2,7 +2,7 @@
 // 화면 모양·동작은 하트(bab-works/bab-zip)와 같은 규칙을 따름 (AGENTS.md)
 // 기록은 이 기기의 localStorage에만 저장: 서버·시트로 보내지 않음 (건강 정보라서)
 const $ = s => document.querySelector(s);
-const APP_VERSION = 'herday-v2'; // sw.js의 CACHE와 같아야 함 (tests/version.js가 확인)
+const APP_VERSION = 'herday-v3'; // sw.js의 CACHE와 같아야 함 (tests/version.js가 확인)
 document.addEventListener('pointerdown', () => document.documentElement.classList.add('pointer-focus'), true);
 document.addEventListener('keydown', e => { if (!e.metaKey && !e.ctrlKey && !e.altKey) document.documentElement.classList.remove('pointer-focus'); }, true);
 const store = {

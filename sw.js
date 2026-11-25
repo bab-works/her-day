@@ -1,6 +1,6 @@
 // 앱 화면 파일만 캐시 (기록은 기기 localStorage에 있음). 파일 수정 후엔 버전을 올리세요.
-const CACHE = 'herday-v2';
-const FILES = ['./', 'index.html', 'app.js', 'cycle.js', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'PretendardVariable.woff2'];
+const CACHE = 'herday-v3';
+const FILES = ['./', 'index.html', 'app.js', 'cycle.js', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'logo.svg', 'PretendardVariable.woff2'];
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())));
 self.addEventListener('activate', e => e.waitUntil(
   caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
