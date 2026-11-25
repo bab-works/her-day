@@ -52,10 +52,10 @@ http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('
   assert.equal(await ls('owner'), 'u-new');
   // 가입 뒤 관심 항목 고르기 → 계정에 저장
   assert.equal(await p.isVisible('#intSheet'), true);
-  await p.click('#intList label:has(input[value=sleep])'); await p.click('#intSave'); await p.waitForTimeout(1000);
-  assert.equal(rows['u-new'].interests.includes('sleep'), false); assert.equal(rows['u-new'].interests.includes('nail'), true);
+  await p.click('#intList label:has(input[value=skin])'); await p.click('#intSave'); await p.waitForTimeout(1000);
+  assert.equal(rows['u-new'].interests.includes('skin'), false); assert.equal(rows['u-new'].interests.includes('nail'), true);
   // 새 기록 → 잠깐 뒤 올라감
-  await p.evaluate(() => { window.__askAuto = () => '2026-11-20'; setSection('cycle'); }); await p.click('#cycStart'); await p.waitForTimeout(1100);
+  await p.evaluate(() => setSection('cycle')); await p.evaluate(() => markPeriod('start', '2026-11-20')); await p.waitForTimeout(1100);
   assert.deepEqual(rows['u-new'].cyclePeriods.map(x => x.start), ['2026-10-28', '2026-11-20']);
   assert.equal(await ls('dirty'), null);
   // 설정에 계정 표시 → 로그아웃하면 기기 기록 지움

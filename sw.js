@@ -1,5 +1,5 @@
 // 앱 화면 파일만 캐시 (기록은 localStorage와 계정 서버에 있음, 다른 주소 요청은 건드리지 않음). 파일 수정 후엔 버전을 올리세요.
-const CACHE = 'herday-v8';
+const CACHE = 'herday-v9';
 const FILES = ['./', 'index.html', 'app.js', 'cloud.js', 'cycle.js', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'logo.svg', 'PretendardVariable.woff2'];
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())));
 self.addEventListener('activate', e => e.waitUntil(
