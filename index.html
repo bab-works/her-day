@@ -886,6 +886,34 @@
   .home-sec svg.i { width:26px; height:26px; color:var(--accent); flex:none; } .home-sec span { display:grid; gap:2px; } .home-sec small { color:var(--muted); font-size:.8rem; }
   html { overscroll-behavior-y:none; }
   html[data-skin="clay"] .home-sec { box-shadow:var(--shadow) !important; } /* 클레이 테마의 버튼 그림자 대신 카드 그림자 */
+  /* her-day 주기: 예상 요약 · 달력 색(테마 변수만) · 기록 창 */
+  .cyc-now { font-size:1.412rem; font-weight:800; letter-spacing:-.02em; margin:0 0 12px; word-break:keep-all; }
+  .cyc-facts { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; }
+  .cyc-facts li { display:grid; gap:2px; padding:10px 12px; border-radius:12px; background:var(--fill); }
+  .cyc-facts small { color:var(--muted); font-size:max(13px,.765rem); } .cyc-facts b { font-size:.941rem; white-space:nowrap; }
+  .cyc-btns { margin-top:14px; } .cyc-btns button { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; font-weight:600; }
+  .cyc-btns svg.i { width:18px; height:18px; }
+  .cyc-warn { display:flex; gap:8px; align-items:flex-start; margin:12px 0 0; padding:10px 12px; border-radius:12px; background:var(--fill); font-size:max(13px,.765rem); color:var(--fg); word-break:keep-all; }
+  .cyc-warn svg.i { flex:none; width:18px; height:18px; color:var(--muted); }
+  #cycCal button { min-height:44px; padding:0; justify-content:center; gap:0; }
+  #cycCal button .d { font-size:1rem; margin:0; }
+  html[data-skin] #cycCal button { box-shadow:none; } /* 클레이 테마의 버튼 그림자 막기 */
+  #cycCal .per { background:var(--out); } #cycCal .per .d { color:#fff !important; }
+  #cycCal .pred { background:color-mix(in srgb, var(--out) 16%, transparent); } #cycCal .pred .d { color:var(--out) !important; }
+  #cycCal .fert { background:var(--accent-soft); }
+  #cycCal .ovu { background:var(--accent-soft); outline:2px solid var(--accent); outline-offset:-2px; }
+  #cycCal .today .d { font-weight:800; text-decoration:underline; text-underline-offset:3px; }
+  #cycCal .mk { position:absolute; bottom:5px; left:50%; width:4px; height:4px; margin-left:-2px; border-radius:50%; background:var(--accent); } #cycCal .per .mk { background:#fff; }
+  .cyc-legend { display:flex; flex-wrap:wrap; gap:6px 14px; margin:12px 2px 0; font-size:max(13px,.765rem); color:var(--muted); }
+  .cyc-legend span { display:flex; align-items:center; gap:6px; } .cyc-legend i { width:12px; height:12px; border-radius:4px; }
+  .cyc-legend .per { background:var(--out); } .cyc-legend .pred { background:color-mix(in srgb, var(--out) 16%, transparent); }
+  .cyc-legend .fert { background:var(--accent-soft); } .cyc-legend .ovu { background:var(--accent-soft); box-shadow:inset 0 0 0 2px var(--accent); }
+  .cyc-chips button { font-size:max(13px,.765rem); padding:10px 2px; word-break:keep-all; }
+  .cyc-chips .add { color:var(--accent); } .cyc-chips .add svg.i { width:14px; height:14px; vertical-align:-2px; }
+  #dayNote { resize:vertical; }
+  #perSheet .sheet-foot .row { gap:8px; }
+  .home-sec small.now { color:var(--fg); font-weight:600; }
+  #v-cycle .month-pill { background:var(--fill); box-shadow:none; } #v-cycle .cyc-legend + .hint { margin-top:10px; }
 </style>
 </head>
 <body>
@@ -897,6 +925,7 @@
   <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
   <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.1"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
   <!-- 메뉴(섹션) 아이콘: 선 굵기·크기를 하트와 같게 -->
   <symbol id="i-s-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></symbol>
@@ -919,6 +948,24 @@
     <div class="dash-hi"><small id="dashDate"></small><h2 id="dashHi">오늘도 나를 챙겨요</h2></div>
     <div id="homeCards"></div>
     <div class="card"><h2>나만 보는 기록</h2><p class="hint">여기 적는 기록은 이 휴대폰 안에만 저장돼요. 다른 사람(만든 사람 포함)은 볼 수 없어요.</p></div>
+  </section>
+  <section id="v-cycle" hidden>
+    <div class="card">
+      <h2>다음 주기 예상</h2>
+      <p class="cyc-now" id="cycNow"></p>
+      <ul class="cyc-facts" id="cycFacts"></ul>
+      <p class="hint" id="cycFew">기록이 쌓이면 더 정확해져요. 지금은 평균 주기 28일로 계산했어요.</p>
+      <div class="row cyc-btns"><button type="button" class="primary" id="cycStart"><svg class="i" aria-hidden="true"><use href="#i-s-cycle"/></svg>생리 시작</button><button type="button" id="cycEnd"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>생리 끝</button></div>
+      <p class="cyc-warn"><svg class="i" aria-hidden="true"><use href="#i-info"/></svg><span>예상은 참고용이에요. 의학적 판단이나 피임 수단이 아니에요.</span></p>
+    </div>
+    <div class="card">
+      <div class="cal-head"><b id="cycMonth"></b><span class="month-pill"><button type="button" id="cycPrev" aria-label="지난달">‹</button><button type="button" id="cycNext" aria-label="다음 달">›</button></span></div>
+      <div class="cal-week" aria-hidden="true"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+      <div class="cal pick" id="cycCal"></div>
+      <div class="cyc-legend" aria-hidden="true"><span><i class="per"></i>생리</span><span><i class="pred"></i>예상 생리</span><span><i class="fert"></i>가임기</span><span><i class="ovu"></i>배란 예상</span></div>
+      <p class="hint">날짜를 누르면 그날의 생리 양 · 증상 · 메모를 남길 수 있어요</p>
+    </div>
+    <div class="card"><h2>지난 기록</h2><ul class="tx" id="cycList"></ul></div>
   </section>
   <section id="v-sec" hidden>
     <div class="card"><h2 id="secHead"></h2><p class="hint" id="secDesc"></p><p class="hint">곧 만들어요</p></div>
@@ -953,6 +1000,27 @@
   <div class="row sheet-foot" style="justify-content:flex-end;margin-top:14px"><button type="button" id="themeClose">완료</button></div>
 </dialog>
 
+<dialog id="daySheet" class="sheet prefs" aria-labelledby="dayTitle">
+  <div class="sheet-grab" aria-hidden="true"><span></span></div>
+  <h2 id="dayTitle" class="prefs-title"></h2>
+  <p class="hint" id="dayInfo" style="text-align:center"></p>
+  <p class="set-label">생리 양</p>
+  <div class="seg" id="dayFlow"><label><input type="radio" name="flow" value="적음"><span>적음</span></label><label><input type="radio" name="flow" value="보통"><span>보통</span></label><label><input type="radio" name="flow" value="많음"><span>많음</span></label></div>
+  <p class="set-label">PMS 증상 · 여러 개 고를 수 있어요</p>
+  <div class="chips cyc-chips" id="daySym"></div>
+  <p class="set-label">메모</p>
+  <textarea id="dayNote" rows="3" aria-label="메모" placeholder="그날 몸 상태를 적어 두세요"></textarea>
+  <div class="row sheet-foot"><button type="button" id="dayClose">닫기</button><button type="button" class="primary" id="daySave">저장</button></div>
+</dialog>
+
+<dialog id="perSheet" class="sheet prefs" aria-labelledby="perTitle">
+  <div class="sheet-grab" aria-hidden="true"><span></span></div>
+  <h2 id="perTitle" class="prefs-title">생리 기록 고치기</h2>
+  <div class="grid2"><label class="f">시작한 날<input type="date" id="perStart"></label><label class="f">끝난 날<input type="date" id="perEnd"></label></div>
+  <p class="hint">끝난 날을 비워 두면 아직 생리 중으로 봐요</p>
+  <div class="row sheet-foot"><button type="button" class="danger" id="perDel">지우기</button><span class="row"><button type="button" id="perCancel">취소</button><button type="button" class="primary" id="perSave">저장</button></span></div>
+</dialog>
+
 <dialog id="lock" class="lock" aria-label="잠김">
   <div class="lock-in"><svg class="i" aria-hidden="true"><use href="#i-lock"/></svg><h2>her-day</h2><p class="hint">잠겨 있어요</p>
     <button type="button" id="unlock" class="primary">Face ID로 열기</button></div>
@@ -965,6 +1033,7 @@
 
 <div id="toast" role="alert"></div>
 <div id="ptr" class="ptr" aria-hidden="true"><svg class="i"><use href="#i-sync"/></svg></div>
+<script src="cycle.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

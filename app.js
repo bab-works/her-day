@@ -2,7 +2,7 @@
 // 화면 모양·동작은 하트(bab-works/bab-zip)와 같은 규칙을 따름 (AGENTS.md)
 // 기록은 이 기기의 localStorage에만 저장: 서버·시트로 보내지 않음 (건강 정보라서)
 const $ = s => document.querySelector(s);
-const APP_VERSION = 'herday-v1'; // sw.js의 CACHE와 같아야 함 (tests/version.js가 확인)
+const APP_VERSION = 'herday-v2'; // sw.js의 CACHE와 같아야 함 (tests/version.js가 확인)
 document.addEventListener('pointerdown', () => document.documentElement.classList.add('pointer-focus'), true);
 document.addEventListener('keydown', e => { if (!e.metaKey && !e.ctrlKey && !e.altKey) document.documentElement.classList.remove('pointer-focus'); }, true);
 const store = {
@@ -48,18 +48,139 @@ let sec = 'home';
 function setSection(k) {
   sec = SECTIONS[k] ? k : 'home'; store.set('sec', sec);
   $('#appTitle').textContent = SECTIONS[sec].title;
-  $('#v-home').hidden = sec !== 'home'; $('#v-sec').hidden = sec === 'home';
-  if (sec === 'home') renderHome(); else { $('#secHead').textContent = SECTIONS[sec].title; $('#secDesc').textContent = SECTIONS[sec].desc; }
-  const v = $(sec === 'home' ? '#v-home' : '#v-sec'); v.classList.remove('enter'); v.offsetWidth; v.classList.add('enter');
+  const own = sec === 'home' || sec === 'cycle'; // 화면이 따로 있는 섹션
+  $('#v-home').hidden = sec !== 'home'; $('#v-cycle').hidden = sec !== 'cycle'; $('#v-sec').hidden = own;
+  if (sec === 'home') renderHome(); else if (sec === 'cycle') renderCycle(); else { $('#secHead').textContent = SECTIONS[sec].title; $('#secDesc').textContent = SECTIONS[sec].desc; }
+  const v = $(own ? '#v-' + sec : '#v-sec'); v.classList.remove('enter'); v.offsetWidth; v.classList.add('enter');
   window.scrollTo(0, 0);
 }
 function renderHome() {
   const d = new Date();
   $('#dashDate').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${'일월화수목금토'[d.getDay()]}요일`;
   $('#homeCards').innerHTML = Object.entries(SECTIONS).filter(([k]) => k !== 'home').map(([k, s]) =>
-    `<button type="button" class="card home-sec" data-sec="${k}"><svg class="i" aria-hidden="true"><use href="#i-s-${k}"/></svg><span><b>${esc(s.title)}</b><small>${esc(s.desc)}</small></span></button>`).join('');
+    `<button type="button" class="card home-sec" data-sec="${k}"><svg class="i" aria-hidden="true"><use href="#i-s-${k}"/></svg><span><b>${esc(s.title)}</b>${k === 'cycle' ? `<small class="now">${esc(cycleNow())}</small>` : `<small>${esc(s.desc)}</small>`}</span></button>`).join('');
 }
 $('#homeCards').addEventListener('click', e => { const k = e.target.closest('[data-sec]')?.dataset.sec; if (k) setSection(k); });
+
+// ── 주기: 생리 기록 · 달력 · 예상 · PMS (계산은 cycle.js) ──
+// 기록: cyclePeriods [{id, start, end}] · cycleDays {날짜: {flow, sym[], note}} · cycleSyms [직접 입력한 증상]
+const SYMS = ['복통', '두통', '요통', '피로', '예민함', '우울', '식욕 증가', '붓기', '여드름', '가슴 통증'];
+const periods = () => store.get('cyclePeriods', []), days = () => store.get('cycleDays', {});
+const md = s => { const [, m, d] = s.split('-'); return `${+m}월 ${+d}일`; };
+const mdw = s => `${md(s)} ${'일월화수목금토'[Cycle.weekday(s)]}요일`;
+function cycleNow() {
+  const s = Cycle.stats(periods());
+  if (!s.last) return '생리 시작일을 기록해 보세요';
+  if (s.inPeriod) return `생리 ${s.inPeriod}일째`;
+  if (s.daysToNext > 0) return `다음 생리까지 ${s.daysToNext}일`;
+  return s.daysToNext === 0 ? '오늘이 생리 예정일이에요' : `생리 예정일이 ${-s.daysToNext}일 지났어요`;
+}
+let calYM = null; // [년, 월]
+function renderCycle() {
+  const ps = periods(), dd = days(), t = Cycle.today(), s = Cycle.stats(ps, t);
+  $('#cycNow').textContent = cycleNow();
+  $('#cycFacts').innerHTML = [s.next && ['다음 생리 예상', md(s.next)], s.next && ['배란 예상', md(s.ovulation)], ['평균 주기', s.cycle + '일'], ['평균 기간', s.len + '일']]
+    .filter(Boolean).map(([k, v]) => `<li><small>${k}</small><b>${v}</b></li>`).join('');
+  $('#cycFew').hidden = s.count >= 2 && !s.estimated;
+  // 달력
+  if (!calYM) calYM = t.split('-').slice(0, 2).map(Number);
+  const [y, m] = calYM, first = `${y}-${String(m).padStart(2, '0')}-01`, n = Cycle.monthDays(y, m), last = Cycle.add(first, n - 1);
+  const mk = Cycle.marks(ps, first, last, t), name = { per: '생리', pred: '예상 생리', fert: '가임기', ovu: '배란 예상' };
+  $('#cycMonth').textContent = `${y}년 ${m}월`;
+  $('#cycCal').innerHTML = '<span></span>'.repeat(Cycle.weekday(first)) + Array.from({ length: n }, (_, i) => {
+    const d = Cycle.add(first, i), w = Cycle.weekday(d), k = mk[d];
+    const cls = [k, d === t && 'today', w === 0 && 'sun', w === 6 && 'sat'].filter(Boolean).join(' ');
+    return `<button type="button" data-d="${d}" class="${cls}" aria-label="${md(d)}${k ? ' ' + name[k] : ''}${dd[d] ? ' 기록 있음' : ''}"><span class="d">${i + 1}</span>${dd[d] ? '<i class="mk"></i>' : ''}</button>`;
+  }).join('');
+  // 지난 기록 (최근 것 위로)
+  const asc = [...ps].sort((a, b) => (a.start < b.start ? -1 : 1));
+  $('#cycList').innerHTML = asc.map((p, i) => {
+    const nx = asc[i + 1], len = p.end ? Cycle.diff(p.start, p.end) + 1 : 0;
+    const range = p.end ? `${md(p.start)} – ${md(p.end)}` : `${md(p.start)} –`;
+    const sub = [p.end ? `${len}일` : Cycle.endOf(p, t) >= t ? '생리 중' : '끝난 날 기록 없음', nx && `주기 ${Cycle.diff(p.start, nx.start)}일`, p.start.slice(0, 4) !== t.slice(0, 4) && p.start.slice(0, 4) + '년'].filter(Boolean).join(' · ');
+    return `<li data-id="${esc(p.id)}"><div><span>${range}</span><small>${sub}</small></div><span class="chev" aria-hidden="true">›</span></li>`;
+  }).reverse().join('') || '<li class="empty">아직 기록이 없어요. 「생리 시작」을 눌러 보세요</li>';
+}
+$('#cycPrev').addEventListener('click', () => { calYM = calYM[1] === 1 ? [calYM[0] - 1, 12] : [calYM[0], calYM[1] - 1]; renderCycle(); });
+$('#cycNext').addEventListener('click', () => { calYM = calYM[1] === 12 ? [calYM[0] + 1, 1] : [calYM[0], calYM[1] + 1]; renderCycle(); });
+
+// 새 기록·고친 기록 확인 (틀리면 알림 후 false)
+function periodOk(p) {
+  const t = Cycle.today(), ok = s => /^\d{4}-\d{2}-\d{2}$/.test(s);
+  if (!ok(p.start) || (p.end && !ok(p.end))) return toast('날짜를 골라 주세요'), false;
+  if (p.start > t || (p.end && p.end > t)) return toast('앞으로의 날짜는 기록할 수 없어요'), false;
+  if (p.end && p.end < p.start) return toast('끝난 날이 시작한 날보다 앞이에요'), false;
+  if (p.end && Cycle.diff(p.start, p.end) >= Cycle.OPEN_MAX) return toast(`시작한 날부터 ${Cycle.OPEN_MAX}일 안의 날짜를 골라 주세요`), false;
+  if (Cycle.overlaps(periods(), p, t)) return toast('이미 기록한 생리 기간과 겹쳐요'), false;
+  return true;
+}
+const savePeriods = ps => store.set('cyclePeriods', ps);
+$('#cycStart').addEventListener('click', async () => {
+  const d = await ask('생리를 시작한 날을 골라 주세요', { ok: '기록하기', input: Cycle.today(), type: 'date' });
+  if (!d) return;
+  const p = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), start: d, end: null };
+  if (!periodOk(p)) return;
+  savePeriods([...periods(), p]); calYM = d.split('-').slice(0, 2).map(Number); renderCycle(); toast(`${md(d)} 생리 시작을 기록했어요`);
+});
+$('#cycEnd').addEventListener('click', async () => {
+  const ps = periods(), p = [...ps].sort((a, b) => (a.start < b.start ? 1 : -1))[0];
+  if (!p) return toast('먼저 「생리 시작」을 기록해 주세요');
+  const d = await ask(`${md(p.start)}에 시작한 생리가 끝난 날을 골라 주세요`, { ok: '기록하기', input: Cycle.today(), type: 'date' });
+  if (!d || !periodOk({ ...p, end: d })) return;
+  savePeriods(ps.map(q => (q.id === p.id ? { ...q, end: d } : q))); renderCycle(); toast(`${md(d)} 생리 끝을 기록했어요`);
+});
+// 지난 기록 고치기·지우기
+let editId = null;
+$('#cycList').addEventListener('click', e => {
+  const p = periods().find(q => q.id === e.target.closest('[data-id]')?.dataset.id); if (!p) return;
+  editId = p.id; $('#perStart').value = p.start; $('#perEnd').value = p.end || ''; $('#perSheet').showModal();
+});
+$('#perCancel').addEventListener('click', () => $('#perSheet').close());
+$('#perSave').addEventListener('click', () => {
+  const p = { id: editId, start: $('#perStart').value, end: $('#perEnd').value || null };
+  if (!periodOk(p)) return;
+  savePeriods(periods().map(q => (q.id === editId ? p : q))); $('#perSheet').close(); renderCycle(); toast('고쳤어요');
+});
+$('#perDel').addEventListener('click', async () => {
+  const p = periods().find(q => q.id === editId); if (!p) return;
+  if (!(await ask(`${md(p.start)}에 시작한 생리 기록을 지울까요?`, { ok: '지우기', danger: true }))) return;
+  savePeriods(periods().filter(q => q.id !== editId)); $('#perSheet').close(); renderCycle(); toast('지웠어요');
+});
+
+// 날짜를 누르면 그날 기록: 생리 양(다시 누르면 선택 풀림) · PMS 증상(여러 개) · 메모
+let dayKey = null, daySym = [];
+function renderSyms() {
+  const all = [...new Set([...SYMS, ...store.get('cycleSyms', []), ...daySym])];
+  $('#daySym').innerHTML = all.map(x => `<button type="button" data-sym="${esc(x)}" aria-pressed="${daySym.includes(x)}">${esc(x)}</button>`).join('')
+    + '<button type="button" class="add" data-add="1"><span><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg> 직접 입력</span></button>';
+}
+$('#cycCal').addEventListener('click', e => {
+  const d = e.target.closest('[data-d]')?.dataset.d; if (!d) return;
+  const r = days()[d] || {}, k = Cycle.marks(periods(), d, d)[d];
+  dayKey = d; daySym = [...(r.sym || [])];
+  $('#dayTitle').textContent = mdw(d);
+  $('#dayInfo').textContent = { per: '생리 기간', pred: '생리 예상일 (참고용)', fert: '가임기 예상 (참고용)', ovu: '배란 예상일 (참고용)' }[k] || '';
+  $('#dayFlow').querySelectorAll('input').forEach(i => { i.checked = i.value === r.flow; });
+  $('#dayNote').value = r.note || ''; renderSyms(); $('#daySheet').showModal();
+});
+{ let was = false; // 고른 양을 다시 누르면 선택 풀기
+  $('#dayFlow').addEventListener('pointerdown', e => { was = !!e.target.closest('label')?.querySelector('input')?.checked; });
+  $('#dayFlow').addEventListener('click', e => { if (e.target.matches('input') && was) { e.target.checked = false; was = false; } }); }
+$('#daySym').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.add) {
+    const v = (await ask('증상을 적어 주세요', { ok: '추가', input: '' }))?.trim().slice(0, 20); if (!v) return;
+    const mine = store.get('cycleSyms', []); if (!SYMS.includes(v) && !mine.includes(v)) store.set('cycleSyms', [...mine, v]);
+    if (!daySym.includes(v)) daySym.push(v);
+  } else { const x = b.dataset.sym; daySym = daySym.includes(x) ? daySym.filter(y => y !== x) : [...daySym, x]; }
+  renderSyms();
+});
+$('#dayClose').addEventListener('click', () => $('#daySheet').close());
+$('#daySave').addEventListener('click', () => {
+  const all = days(), flow = $('#dayFlow input:checked')?.value || '', note = $('#dayNote').value.trim();
+  if (flow || daySym.length || note) all[dayKey] = { flow, sym: daySym, note }; else delete all[dayKey];
+  store.set('cycleDays', all); $('#daySheet').close(); renderCycle(); toast(`${md(dayKey)} 기록을 저장했어요`);
+});
 
 // 사이드 메뉴: --p(열린 정도 0~1)로 하트와 같은 곡선으로 열고 닫음
 const root = document.documentElement, menuP = p => root.style.setProperty('--p', p);
