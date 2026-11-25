@@ -2,6 +2,7 @@
 const { chromium, devices } = require('playwright'), fs = require('fs'), http = require('http'), path = require('path'), assert = require('assert');
 http.createServer((q, r) => { const f = path.join(__dirname, '..', q.url.split('?')[0] === '/' ? 'index.html' : q.url.split('?')[0]); fs.readFile(f, (e, b) => { r.writeHead(e ? 404 : 200, { 'Content-Type': f.endsWith('.js') ? 'text/javascript' : f.endsWith('.png') ? 'image/png' : 'text/html' }); r.end(b); }); }).listen(8810, async () => {
   const b = await chromium.launch(), ctx = await b.newContext({ ...devices['iPhone 13'] }), p = await ctx.newPage(), outside = [];
+  await ctx.addInitScript(() => { window.__cloud = { url: '' }; }); // 서버 없이(기기 모드)
   p.on('pageerror', e => { console.error('ERR', e.message); process.exit(1); });
   p.on('request', q => { if (!q.url().startsWith('http://localhost:8810/')) outside.push(q.url()); });
   await p.goto('http://localhost:8810/'); await p.waitForTimeout(500);

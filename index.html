@@ -428,6 +428,8 @@
   .lock { width:100vw; height:100dvh; max-width:none; max-height:none; margin:0; border-radius:0; background:var(--bg); display:none; place-items:center; }
   .lock[open] { display:grid; } .lock::backdrop { background:var(--bg); }
   .lock-in { display:flex; flex-direction:column; align-items:center; gap:10px; } .lock-in > svg.i { width:44px; height:44px; color:var(--accent); }
+  .login-in { width:min(320px, 100vw - 48px); } .login-in input { width:100%; } .login-in .primary { width:100%; margin-top:6px; } .login-in .hint { text-align:center; word-break:keep-all; }
+  .login-mode { background:none !important; box-shadow:none !important; color:var(--muted); font-weight:500; }
   .lock-in h2 { font-size:1.412rem; margin:0; } #lockPw { display:flex; gap:6px; margin-top:18px; } #lockPw input { width:170px; }
   .recap-banner { display:flex; justify-content:space-between; align-items:center; width:100%; margin:8px 0; padding:14px 18px; border-radius:18px; color:#fff; font-weight:700; background:linear-gradient(120deg, #3182f6, #7b5cf5); }
   .recap-banner[hidden] { display:none; }
@@ -982,6 +984,10 @@
 <dialog id="prefs" class="sheet prefs" aria-labelledby="prefsTitle">
   <div class="sheet-grab" aria-hidden="true"><span></span></div>
   <h2 id="prefsTitle" class="prefs-title">설정</h2>
+  <div id="acctBox" hidden><p class="set-label">계정</p>
+  <div class="set-group">
+    <div class="set-row"><span class="set-grow"><span id="acctEmail"></span><small id="acctSync">기록은 계정에 저장돼요</small></span><button type="button" id="logout">로그아웃</button></div>
+  </div></div>
   <p class="set-label">보안</p>
   <div class="set-group">
     <label class="set-row switch"><span class="set-grow">Face ID 잠금<small>앱을 열 때 Face ID로 열어요</small></span><input type="checkbox" id="lockOn"><i aria-hidden="true"></i></label>
@@ -1027,6 +1033,14 @@
     <button type="button" id="unlock" class="primary">Face ID로 열기</button></div>
 </dialog>
 
+<dialog id="login" class="lock" aria-labelledby="loginTitle">
+  <form class="lock-in login-in" id="loginForm"><img src="logo.svg" alt="" width="56" height="56"><h2 id="loginTitle">her-day</h2><p class="hint" id="loginHint">로그인하면 다른 기기에서도 기록을 볼 수 있어요</p>
+    <input type="email" id="loginEmail" autocomplete="email" placeholder="이메일" aria-label="이메일" required>
+    <input type="password" id="loginPw" autocomplete="current-password" placeholder="비밀번호 (6자 이상)" aria-label="비밀번호" minlength="6" required>
+    <button id="loginGo" class="primary">로그인</button>
+    <button type="button" id="loginMode" class="login-mode">처음이에요 · 가입하기</button></form>
+</dialog>
+
 <dialog id="ask" class="ask" aria-labelledby="askMsg">
   <form><p id="askMsg"></p><input aria-label="입력">
     <div class="ask-btns"><button type="button" id="askNo">취소</button><button id="askOk" class="primary">확인</button></div></form>
@@ -1034,6 +1048,7 @@
 
 <div id="toast" role="alert"></div>
 <div id="ptr" class="ptr" aria-hidden="true"><svg class="i"><use href="#i-sync"/></svg></div>
+<script src="cloud.js"></script>
 <script src="cycle.js"></script>
 <script src="app.js"></script>
 </body>

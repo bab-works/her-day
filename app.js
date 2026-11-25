@@ -1,13 +1,13 @@
 // her-day: 주기 · 수면 · 약과 영양제 · 네일을 나만 보는 곳에 기록하는 앱
 // 화면 모양·동작은 하트(bab-works/bab-zip)와 같은 규칙을 따름 (AGENTS.md)
-// 기록은 이 기기의 localStorage에만 저장: 서버·시트로 보내지 않음 (건강 정보라서)
+// 기록은 localStorage에 두고, 로그인하면 본인 계정(Supabase, cloud.js)에도 저장해 다른 기기에서 이어 씀. 남은 볼 수 없음 (supabase.sql의 RLS)
 const $ = s => document.querySelector(s);
-const APP_VERSION = 'herday-v3'; // sw.js의 CACHE와 같아야 함 (tests/version.js가 확인)
+const APP_VERSION = 'herday-v4'; // sw.js의 CACHE와 같아야 함 (tests/version.js가 확인)
 document.addEventListener('pointerdown', () => document.documentElement.classList.add('pointer-focus'), true);
 document.addEventListener('keydown', e => { if (!e.metaKey && !e.ctrlKey && !e.altKey) document.documentElement.classList.remove('pointer-focus'); }, true);
 const store = {
   get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
-  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { $('#storageError').hidden = false; return false; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); Cloud.changed(k); return true; } catch { $('#storageError').hidden = false; return false; } },
 };
 navigator.storage?.persist?.(); // 브라우저가 기록을 임의로 지우지 않게 요청
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -221,7 +221,10 @@ function renderSkins() {
 $('#skinList').addEventListener('click', e => { const k = e.target.closest('[data-skin]')?.dataset.skin; if (k) { setSkin(k); toast(`「${SKINS.find(x => x[0] === k)[1]}」로 바꿨어요`); } });
 $('#prefTheme').addEventListener('click', () => $('#themeSheet').showModal());
 $('#themeClose').addEventListener('click', () => $('#themeSheet').close());
-function openPrefs() { $('#lockOn').checked = !!store.get('lockId'); $('#appVer').textContent = '앱 버전 ' + APP_VERSION.replace('herday-', ''); $('#prefs').showModal(); }
+function openPrefs() {
+  const u = Cloud.on && Cloud.user(); $('#acctBox').hidden = !u;
+  if (u) { $('#acctEmail').textContent = u.email; $('#acctSync').textContent = Cloud.dirty() ? '아직 올리지 못한 기록이 있어요' : '기록은 계정에 저장돼요'; }
+  $('#lockOn').checked = !!store.get('lockId'); $('#appVer').textContent = '앱 버전 ' + APP_VERSION.replace('herday-', ''); $('#prefs').showModal(); }
 $('#openSettings').addEventListener('click', openPrefs);
 $('#prefsClose').addEventListener('click', () => $('#prefs').close());
 
@@ -268,8 +271,8 @@ $('#lockOn').addEventListener('change', async e => {
     if (go) refresh();
   });
 }
-// 기록이 기기 안에 있어서 「새로고침」 = 새 버전 확인 + 화면 다시 그리기
-function refresh() { checkVersion(); setSection(sec); toast('새로 불러왔어요', 1500); }
+// 「새로고침」 = 새 버전 확인 + 계정 기록 받아 오기 + 화면 다시 그리기
+async function refresh() { checkVersion(); await pull(true); setSection(sec); toast(Cloud.dirty() ? '인터넷에 연결되면 기록을 올릴게요' : '새로 불러왔어요', 1500); }
 $('#reload').addEventListener('click', refresh);
 
 // ── 새 버전 확인: 배포된 sw.js의 버전과 지금 화면의 버전을 비교해서 다르면 새로고침 ──
@@ -284,7 +287,45 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) checkVersion(); });
 }
 
+// ── 로그인 · 클라우드 (cloud.js) ──
+// 계정 기록을 받아 와서 화면을 다시 그림 (무언가 입력 중이면 화면은 그대로)
+async function pull(quiet) {
+  if (!Cloud.on || !Cloud.user()) return;
+  try { if (await Cloud.sync() && !quiet && !document.querySelector('dialog[open]')) setSection(sec); }
+  catch (e) { if (!Cloud.user()) showLogin(); }
+}
+let signUpMode = false;
+function showLogin() {
+  $('#loginPw').value = ''; if (!$('#login').open) $('#login').showModal();
+}
+$('#login').addEventListener('cancel', e => e.preventDefault());
+$('#loginMode').addEventListener('click', () => {
+  signUpMode = !signUpMode;
+  $('#loginGo').textContent = signUpMode ? '가입하기' : '로그인';
+  $('#loginMode').textContent = signUpMode ? '이미 계정이 있어요 · 로그인' : '처음이에요 · 가입하기';
+  $('#loginPw').autocomplete = signUpMode ? 'new-password' : 'current-password';
+});
+$('#loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const email = $('#loginEmail').value.trim(), pw = $('#loginPw').value, go = $('#loginGo');
+  go.disabled = true;
+  try {
+    if (signUpMode && !(await Cloud.signUp(email, pw))) { toast('메일함에서 인증 링크를 누른 뒤 로그인해 주세요', 6000); $('#loginMode').click(); return; }
+    if (!signUpMode) await Cloud.signIn(email, pw);
+    await Cloud.sync(); $('#login').close(); setSection(sec); toast(signUpMode ? '가입했어요' : '로그인했어요');
+  } catch (err) { toast(err.message); }
+  finally { go.disabled = false; }
+});
+$('#logout').addEventListener('click', async () => {
+  let ok = true;
+  if (Cloud.dirty()) ok = await Cloud.push().then(() => true, () => false);
+  if (!(await ask(ok ? '로그아웃하면 이 기기에서는 기록이 지워져요. 계정에는 그대로 남아요.' : '아직 계정에 올리지 못한 기록이 있어요. 지금 로그아웃하면 그 기록은 사라져요.', { ok: '로그아웃', danger: true }))) return;
+  await Cloud.signOut(); $('#prefs').close(); setSection('home'); showLogin();
+});
+document.addEventListener('visibilitychange', () => { if (!document.hidden) pull(); });
+
 // ── 시작 ──
 setSkin(skin());
 setSection(store.get('sec', 'home'));
 lockNow();
+if (Cloud.on) { if (Cloud.user()) pull(); else showLogin(); }
